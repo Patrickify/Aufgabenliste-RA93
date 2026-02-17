@@ -1,4 +1,4 @@
-const CACHE = "zdl-ra93-v1";
+const CACHE = "ra93-v1";
 const ASSETS = [
   "./",
   "./index.html",
@@ -12,7 +12,9 @@ const ASSETS = [
 self.addEventListener("install", (e) => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(ASSETS);
+    for (const url of ASSETS) {
+      try { await c.add(url); } catch (_) { /* ignore missing */ }
+    }
     self.skipWaiting();
   })());
 });
@@ -20,7 +22,7 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.map(k => (k !== CACHE) ? caches.delete(k) : null));
+    await Promise.all(keys.map(k => k !== CACHE ? caches.delete(k) : null));
     self.clients.claim();
   })());
 });
@@ -30,10 +32,10 @@ self.addEventListener("fetch", (e) => {
     const cached = await caches.match(e.request);
     if (cached) return cached;
     try {
-      const resp = await fetch(e.request);
-      return resp;
-    } catch {
-      return caches.match("./index.html");
+      const res = await fetch(e.request);
+      return res;
+    } catch (err) {
+      return cached || new Response("Offline", { status: 503 });
     }
   })());
 });
