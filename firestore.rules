@@ -1,1 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    function superEnabled(uid) {
+      return exists(/databases/$(database)/documents/superadmins/$(uid)) &&
+        get(/databases/$(database)/documents/superadmins/$(uid)).data.enabled == true;
+    }
+
+    function adminEnabled(uid) {
+      return exists(/databases/$(database)/documents/admins/$(uid)) &&
+        get(/databases/$(database)/documents/admins/$(uid)).data.enabled == true;
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && superEnabled(request.auth.uid);
+    }
+
+    function isAdmin() {
+      return signedIn() && (isSuperAdmin() || adminEnabled(request.auth.uid));
+    }
+
+    // ---------- meta counts (superadmin writes)
+    match /meta/admin_counts {
+      allow read: if isAdmin();
+      allow write: if isSuperAdmin();
+    }
+
+    // ---------- superadmins/admins
+    match /superadmins/{uid} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+    match /admins/{uid} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ---------- users (own)
+    match /users/{uid} {
+      allow read: if signedIn() && uid == request.auth.uid;
+      allow create, update: if signedIn() && uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ---------- user prefs (vacation mute)
+    match /user_prefs/{uid} {
+      allow read, create, update: if signedIn() && uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ---------- employees (login list)
+    match /employees_public/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---------- tags
+    match /tags/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---------- weekly templates (Mon-Sat)
+    match /weekly_templates/{id} {
+      allow read: if isAdmin();        // Admin-only (damit User nicht deine Wochenplanung sehen müssen)
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---------- daily tasks (everyone reads; users can only mark ✅ once)
+    match /daily_tasks/{id} {
+      allow read: if true;
+
+      // create/delete only admin
+      allow create, delete: if isAdmin();
+
+      // update:
+      // - admin can update anything
+      // - normal signed-in user: only allowed to set status to ✅ once (no reverting)
+      allow update: if signedIn() && (
+        isAdmin() ||
+        (
+          // Only these fields may change
+          request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(["status","doneBy","doneAtLast","updatedAt"])
+          &&
+          // only to ✅
+          request.resource.data.status == "✅"
+          &&
+          // and original was not ✅
+          resource.data.status != "✅"
+        )
+      );
+    }
+
+    // ---------- rides daily (everyone reads; signed-in can write)
+    match /rides_daily/{day}/people/{personKey} {
+      allow read: if true;
+      allow create, update, delete: if signedIn();
+    }
+
+    // ---------- archives (admin only)
+    match /archives/{day}/tasks/{id} {
+      allow read, create, update, delete: if isAdmin();
+    }
+    match /rides_archives/{day}/people/{id} {
+      allow read, create, update, delete: if isAdmin();
+    }
+  }
+}
 
