@@ -46,6 +46,8 @@ const META_COUNTS_REF = doc(db, "meta", "admin_counts");
 const META_DAY_REF = (dayKey) => doc(db, "meta_days", dayKey); // marker: daily built or archived
 
 /* ---------------- helpers ---------------- */
+// Alias / Fix: falls irgendwo todayKeyNow() benutzt wird
+function todayKeyNow(){ return dayKey(); }
 const $ = (id) => document.getElementById(id);
 const show = (el, on) => { if (el) el.classList.toggle("hidden", !on); };
 const n = (v) => String(v ?? "").replace(/\s+/g, " ").trim();
