@@ -1174,8 +1174,14 @@ async function startStreams_(){
 /* ---------------- init ---------------- */
 onAuthStateChanged(auth, async ()=>{
   await ensureAnon_();
-  await ensureCountsDoc_();
+
+  // 1) Erst Bootstrap Superadmin (falls noch keiner existiert)
   await bootstrapSuperAdminOnce_();
+
+  // 2) Danach counts doc (jetzt hast du Rechte)
+  await ensureCountsDoc_();
+
+  // 3) Seed employee
   await seedFirstEmployeeIfEmpty_();
 
   const stored = n(localStorage.getItem("meName"));
@@ -1191,3 +1197,4 @@ onAuthStateChanged(auth, async ()=>{
     show(appView,false);
   }
 });
+
