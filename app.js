@@ -46,6 +46,21 @@ const META_COUNTS_REF = doc(db, "meta", "admin_counts");
 const META_DAY_REF = (dayKey) => doc(db, "meta_days", dayKey); // marker: daily built or archived
 
 /* ---------------- helpers ---------------- */
+// =====================
+// DAY KEY HELPER
+// =====================
+
+function dayKey() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+}
+
+// Alias falls Code todayKeyNow benutzt
+function todayKeyNow() {
+  return dayKey();
+}
+
 // Alias / Fix: falls irgendwo todayKeyNow() benutzt wird
 function todayKeyNow(){ return dayKey(); }
 const $ = (id) => document.getElementById(id);
