@@ -35,8 +35,8 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const MAX_SUPER = 3;
-const MAX_ADMIN = 8;
+const MAX_SUPER = 10;
+const MAX_ADMIN = 25;
 const META_COUNTS_REF = doc(db, "meta", "admin_counts");
 
 /* ---------------- helpers ---------------- */
