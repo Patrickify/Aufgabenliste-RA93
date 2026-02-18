@@ -7,7 +7,14 @@
   --accent:#2563eb;
   --danger:#ef4444;
 }
+body {
+  margin: 0;
 
+  /* verhindert iOS Overscroll Notch Bugs */
+  padding-top: 0;
+
+  background: #0b0f14;
+}
 *{box-sizing:border-box}
 body{
   margin:0;
