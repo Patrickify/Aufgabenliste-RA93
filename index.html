@@ -19,7 +19,28 @@
   <link rel="apple-touch-icon" href="./icon-192.png">
 
   <title>Aufgabenliste ZDL RA 93</title>
+
+  <!-- ✅ SAFE-AREA FIX (Dynamic Island / Notch) -->
+  <style>
+    :root{
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    /* Topbar nach unten schieben, damit Buttons nicht unter Dynamic Island liegen */
+    header.topbar{
+      padding-top: calc(var(--safe-top) + 10px) !important;
+      padding-left: calc(var(--safe-left) + 12px) !important;
+      padding-right: calc(var(--safe-right) + 12px) !important;
+    }
+    /* Hauptbereich unten safe (optional) */
+    main.container{
+      padding-bottom: calc(var(--safe-bottom) + 16px) !important;
+    }
+  </style>
 </head>
+
 <body>
   <header class="topbar">
     <div class="brand">Aufgabenliste ZDL RA 93</div>
@@ -52,7 +73,7 @@
       </div>
 
       <details class="cardlite">
-        <summary>UID (nur Info / Debug)</summary>
+        <summary>UID (für Admin/Superadmin)</summary>
         <div class="row">
           <button id="showUidBtn" class="btn ghost">Meine UID anzeigen</button>
           <button id="copyUidBtn" class="btn ghost" disabled>UID kopieren</button>
@@ -202,7 +223,7 @@
               <input id="planTaskInp" class="input" placeholder="Aufgabe für Wochenplan" />
               <button id="planAddBtn" class="btn ghost">Hinzufügen</button>
             </div>
-            <div class="muted small">Wird automatisch um 00:00 übernommen (und beim nächsten Öffnen nachgeholt).</div>
+            <div class="muted small">Diese Aufgaben werden automatisch jeden Tag um 00:00 in die Tagesliste kopiert (wenn App offen ist) und sonst beim nächsten Öffnen nachgeholt.</div>
             <div id="planList" class="list"></div>
           </section>
 
@@ -216,23 +237,23 @@
             <div class="divider"></div>
 
             <h4>Endkontrolle</h4>
-            <p class="muted small">Punkte werden erst bei Endkontrolle gebucht.</p>
+            <p class="muted small">Punkte werden erst bei Endkontrolle gebucht. Pro erledigter Aufgabe bekommt jeder ausgewählte Mitarbeiter +1 Aufgabenpunkt.</p>
             <div id="finalList" class="list"></div>
           </section>
 
           <!-- ROLES -->
           <section id="rolesSub" class="subtab hidden">
-            <h3>Admins verwalten (BENUTZERBASIERT)</h3>
-            <p class="muted small">Rollen werden nach <b>NameKey</b> vergeben (z.B. patrick). Gilt auf allen Geräten.</p>
+            <h3>Admins verwalten</h3>
+            <p class="muted small">Super-Admin: max 3 Superadmins und 8 Admins.</p>
 
             <div class="row">
-              <input id="adminUidAdd" class="input" placeholder="NameKey für ADMIN (z.B. patrick)" />
+              <input id="adminUidAdd" class="input" placeholder="UID für ADMIN (max 8)" />
               <button id="adminUidAddBtn" class="btn ghost">Admin hinzufügen</button>
             </div>
             <div id="adminUidList" class="list"></div>
 
             <div class="row">
-              <input id="superUidAdd" class="input" placeholder="NameKey für SUPERADMIN (z.B. patrick)" />
+              <input id="superUidAdd" class="input" placeholder="UID für SUPERADMIN (max 3)" />
               <button id="superUidAddBtn" class="btn ghost">Superadmin hinzufügen</button>
             </div>
             <div id="superUidList" class="list"></div>
@@ -241,7 +262,7 @@
           <!-- SETTINGS -->
           <section id="settingsSub" class="subtab hidden">
             <h3>Urlaub / Stumm</h3>
-            <p class="muted small"><b>Jeder Benutzer</b> kann seinen Urlaub selbst speichern.</p>
+            <p class="muted small">Wenn aktiv, werden Push/Benachrichtigungen im UI stumm (und Hinweise ausgeblendet). (Ohne Server kann der Browser trotzdem systemseitig noch anzeigen.)</p>
             <div class="grid2">
               <label>Von (YYYYMMDD)
                 <input id="vacFrom" class="input" placeholder="20260218" />
