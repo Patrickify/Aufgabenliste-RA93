@@ -1,145 +1,222 @@
-:root{
-  --bg:#0b0f14;
-  --card:#111827;
-  --muted:#9ca3af;
-  --text:#e5e7eb;
-  --line:#1f2937;
-  --accent:#2563eb;
-  --danger:#ef4444;
+:root {
+  --bg: #0b0f14;
+  --card: #111827;
+  --muted: #9ca3af;
+  --text: #e5e7eb;
+  --line: #1f2937;
+  --accent: #2563eb;
+  --danger: #ef4444;
+  
+  /* Safe Area Variablen für sauberes Padding */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
-
-  /* verhindert iOS Overscroll Notch Bugs */
   padding-top: 0;
-
-  background: #0b0f14;
-}
-*{box-sizing:border-box}
-body{
-  margin:0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  background:var(--bg);
-  color:var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  /* Verhindert horizontales Scrollen bei Animationen */
+  overflow-x: hidden; 
 }
 
 /* =============================
-   iPhone Dynamic Island FIX
+   HEADER / TOPBAR
    ============================= */
-
 .topbar {
   position: sticky;
   top: 0;
+  z-index: 1000;
+  background: rgba(11, 15, 20, 0.95); /* Leicht transparent */
+  backdrop-filter: blur(10px); /* Glas-Effekt wie iOS */
+  border-bottom: 1px solid var(--line);
 
-  /* WICHTIG: Safe Area berücksichtigen */
-  padding-top: calc(env(safe-area-inset-top) + 10px);
+  /* Layout Fix: Flexbox damit Links/Rechts getrennt sind */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 
-  padding-left: max(16px, env(safe-area-inset-left));
-  padding-right: max(16px, env(safe-area-inset-right));
-  padding-bottom: 10px;
-
-  background: #0b0f14;
-
-  z-index: 999;
-}
-.brand{font-weight:700}
-.right{display:flex; gap:8px; align-items:center}
-.who{color:var(--muted); font-size:12px}
-
-.container{max-width:950px; margin:14px auto; padding:0 12px}
-
-.card{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:12px;
-  padding:14px;
-  margin-bottom:12px;
-}
-.cardlite{
-  background:rgba(255,255,255,0.03);
-  border:1px dashed var(--line);
-  border-radius:12px;
-  padding:12px;
-  margin-top:12px;
-}
-.muted{color:var(--muted)}
-.small{font-size:12px}
-.error{color:#fca5a5; margin-top:10px; white-space:pre-wrap}
-
-.row{display:flex; gap:10px; align-items:center; margin-top:10px}
-.between{justify-content:space-between}
-.grow{flex:1}
-
-.grid{display:grid; gap:10px; grid-template-columns:1fr}
-.grid2{display:grid; gap:10px; grid-template-columns:1fr 1fr}
-
-input, select{
-  width:100%;
-  border-radius:10px;
-  border:1px solid var(--line);
-  background:#0b1220;
-  color:var(--text);
-  padding:10px;
-}
-.select{padding:10px}
-.search{padding:10px}
-
-.btn{
-  border:1px solid var(--line);
-  background:var(--accent);
-  color:white;
-  padding:10px 12px;
-  border-radius:10px;
-  cursor:pointer;
-}
-.btn.ghost{background:transparent}
-.btn.danger{background:var(--danger)}
-.btn:disabled{opacity:.5; cursor:not-allowed}
-
-.hidden{display:none !important}
-
-.divider{height:1px; background:var(--line); margin:12px 0}
-
-.list{display:flex; flex-direction:column; gap:8px; margin-top:10px}
-.item{
-  display:flex; justify-content:space-between; align-items:center;
-  border:1px solid var(--line);
-  border-radius:12px;
-  padding:10px;
-  background:#0b1220;
-}
-.main .title{font-weight:650}
-.sub{margin-top:3px}
-.actions{display:flex; gap:8px; align-items:center}
-
-.pill{
-  font-size:12px;
-  border:1px solid var(--line);
-  padding:6px 10px;
-  border-radius:999px;
-  color:var(--muted);
+  /* Safe Area Padding */
+  padding-top: calc(var(--safe-top) + 12px);
+  padding-bottom: 12px;
+  padding-left: max(16px, var(--safe-left));
+  padding-right: max(16px, var(--safe-right));
 }
 
-.tabs{display:flex; gap:8px}
-.tabbtn, .subtabbtn{
-  border:1px solid var(--line);
-  background:transparent;
-  color:var(--text);
-  padding:10px 12px;
-  border-radius:10px;
-  cursor:pointer;
-}
-.tabbtn.active, .subtabbtn.active{
-  border-color:var(--accent);
-  box-shadow:0 0 0 2px rgba(37,99,235,.2) inset;
+.brand { 
+  font-weight: 700; 
+  font-size: 1.1rem;
+  white-space: nowrap;
 }
 
-.subtabs{display:flex; gap:8px; flex-wrap:wrap}
-
-details.detailsCard{
-  border:1px solid var(--line);
-  border-radius:12px;
-  padding:10px;
-  background:#0b1220;
+.right { 
+  display: flex; 
+  gap: 10px; 
+  align-items: center; 
 }
-summary{cursor:pointer}
+
+.who { 
+  color: var(--muted); 
+  font-size: 0.8rem; 
+  text-align: right;
+  line-height: 1.2;
+}
+
+/* =============================
+   CONTAINER & CARDS
+   ============================= */
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px max(16px, var(--safe-left));
+  padding-bottom: calc(var(--safe-bottom) + 80px); /* Platz unten für Scroll */
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px; /* Etwas runder für modernen Look */
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.cardlite {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+/* =============================
+   TYPOGRAPHY & UTILS
+   ============================= */
+h2, h3 { margin: 0 0 10px 0; font-weight: 600; }
+p { margin: 0 0 10px 0; line-height: 1.5; }
+
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.error { color: #fca5a5; margin-top: 10px; font-weight: 500; }
+.hidden { display: none !important; }
+
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.between { justify-content: space-between; }
+.grow { flex: 1; }
+
+.grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
+.grid2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+
+.divider { height: 1px; background: var(--line); margin: 16px 0; }
+
+/* =============================
+   FORMS & BUTTONS
+   ============================= */
+input, select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #0b1220;
+  color: var(--text);
+  padding: 12px;
+  font-size: 1rem; /* Verhindert Zoom auf iOS */
+  outline: none;
+  transition: border-color 0.2s;
+}
+input:focus, select:focus { border-color: var(--accent); }
+
+.btn {
+  border: none;
+  background: var(--accent);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: opacity 0.2s;
+  text-align: center;
+}
+.btn:active { opacity: 0.7; }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.btn.danger { background: var(--danger); color: white; border: none; }
+
+/* =============================
+   LISTS & ITEMS
+   ============================= */
+.list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+.item {
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #0b1220;
+  gap: 10px; /* Abstand zwischen Text und Button */
+}
+
+/* Damit langer Text nicht den Button verdeckt */
+.item .main { flex: 1; min-width: 0; } 
+.item .main b { display: block; overflow: hidden; text-overflow: ellipsis; }
+
+/* Erledigte Aufgaben etwas abdunkeln */
+.item.done { opacity: 0.6; }
+
+/* =============================
+   TABS & NAV
+   ============================= */
+.tabs { 
+  display: flex; 
+  gap: 8px; 
+  overflow-x: auto; /* Scrollbar auf kleinen Handys */
+  padding-bottom: 4px;
+}
+
+.tabbtn, .subtabbtn {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+/* Aktiver Tab - deutlicher sichtbar */
+.tabbtn.active, .subtabbtn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
+}
+
+.subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+
+/* =============================
+   BADGES & PILLS
+   ============================= */
+.pill {
+  font-size: 0.75rem;
+  border: 1px solid var(--line);
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgba(0,0,0,0.2);
+}
+
+#adminBadge {
+  background: var(--danger);
+  color: white;
+  border: none;
+  font-weight: bold;
+}
