@@ -3,20 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  
   <meta name="theme-color" content="#0b0f14" />
-  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Aufgaben RA93">
-
-  <link rel="manifest" href="./manifest.json" />
+  <title>Aufgabenliste ZDL RA 93</title>
   <link rel="stylesheet" href="./styles.css" />
-  
+  <link rel="manifest" href="./manifest.json" />
   <link rel="icon" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-
-  <title>Aufgabenliste ZDL RA 93</title>
 </head>
 
 <body>
@@ -34,55 +28,33 @@
     <section id="loginView" class="card">
       <h2>Anmeldung</h2>
       <div class="grid">
-        <label>Mitarbeiter
-          <select id="nameSel" class="select"></select>
-        </label>
-        <label>Passwort
-          <input id="passInp" type="password" class="input" placeholder="Passwort" />
-        </label>
+        <label>Mitarbeiter <select id="nameSel" class="select"></select></label>
+        <label>Passwort <input id="passInp" type="password" class="input" placeholder="Passwort" /></label>
       </div>
-      <div class="row">
-        <button id="loginBtn" class="btn grow">Starten</button>
-      </div>
-      <div id="loginErr" class="error"></div>
+      <div class="row"><button id="loginBtn" class="btn grow">Starten</button></div>
     </section>
 
     <section id="appView" class="hidden">
 
       <section class="card tabs">
         <button class="tabbtn active" data-tab="tasksTab">Aufgaben</button>
+        
         <button class="tabbtn" data-tab="hygieneTab">Hygiene</button>
+        
         <button class="tabbtn" data-tab="ridesTab">Fahrten</button>
         <button class="tabbtn" data-tab="adminTab" id="adminTabBtn">Admin</button>
       </section>
 
       <section id="tasksTab" class="tab card">
-        <div class="row between">
-          <h2>Tags</h2>
-          <input id="tagSearch" class="search" placeholder="Suche Tag..." />
-        </div>
+        <div class="row between"><h2>Tags</h2><input id="tagSearch" class="search" placeholder="Suche..." /></div>
         <div id="tagList" class="list"></div>
-
         <div class="divider"></div>
-
-        <div class="row between">
-          <h2 id="openTagTitle">Kein Tag geöffnet</h2>
-        </div>
-
-        <div class="row">
-          <label class="grow">Erledigt von
-            <select id="doneBySel" class="select" multiple size="4"></select>
-          </label>
-        </div>
-
-        <div class="row">
-          <button id="markSelectedDoneBtn" class="btn grow">✅ Ausgewählte Aufgabe erledigen</button>
-        </div>
-        <div class="muted small" id="taskHint" style="margin-top:5px; color:var(--accent)"></div>
-
+        <h2 id="openTagTitle">Kein Tag geöffnet</h2>
+        <div class="row"><label class="grow">Erledigt von <select id="doneBySel" class="select" multiple size="4"></select></label></div>
+        <div class="row"><button id="markSelectedDoneBtn" class="btn grow">✅ Erledigen</button></div>
+        <div class="muted small" id="taskHint" style="color:var(--accent)"></div>
         <div id="taskList" class="list"></div>
-        
-        <button id="newDailyTaskBtn" class="btn ghost hidden" style="margin-top:20px">+ Manuelle Tagesaufgabe</button>
+        <button id="newDailyTaskBtn" class="btn ghost hidden" style="margin-top:20px">+ Manuelle Aufgabe</button>
       </section>
 
       <section id="hygieneTab" class="tab card hidden">
@@ -90,40 +62,27 @@
           <h2>Hygiene Checklisten</h2>
           <span class="pill">Täglich</span>
         </div>
-        <p class="muted small">Kategorien öffnen und Aufgaben abhaken (ohne Punkte).</p>
-        
-        <div id="hygieneUserList" class="list">
-          </div>
+        <p class="muted small">Bitte Kategorien öffnen und Aufgaben abhaken.</p>
+        <div id="hygieneUserList" class="list"></div>
       </section>
 
       <section id="ridesTab" class="tab card hidden">
         <h2>Fahrten (72h)</h2>
         <div class="grid2">
-          <label>Fahrer
-            <select id="rideNameSel" class="select"></select>
-          </label>
-          <label>Einsatznummer
-            <input id="rideEinsatz" class="input" type="number" placeholder="12345" />
-          </label>
+          <label>Fahrer <select id="rideNameSel" class="select"></select></label>
+          <label>Einsatz <input id="rideEinsatz" class="input" type="number" /></label>
         </div>
-        <div class="row">
-          <button id="addRideBtn" class="btn grow">Fahrt speichern (+1 Pkt)</button>
-        </div>
+        <div class="row"><button id="addRideBtn" class="btn grow">Fahrt speichern</button></div>
         <span id="rideInfo" class="muted small" style="color:var(--accent)"></span>
-
         <div class="divider"></div>
         <div id="ridesList" class="list"></div>
       </section>
 
       <section id="adminTab" class="tab card hidden">
-        <div class="row between">
-          <h2>Adminbereich</h2>
-          <span id="adminBadge" class="pill hidden">ADMIN</span>
-        </div>
+        <div class="row between"><h2>Admin</h2><span id="adminBadge" class="pill hidden">ADMIN</span></div>
         <div id="adminLock" class="muted">Zugriff verweigert.</div>
 
         <div id="adminArea" class="hidden">
-          
           <section class="cardlite subtabs">
             <button class="subtabbtn active" data-subtab="toolsSub">Endkontrolle</button>
             <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
@@ -134,111 +93,66 @@
           </section>
 
           <section id="toolsSub" class="subtab">
-            <h3>Endkontrolle (Aufgaben & Hygiene)</h3>
-            <p class="muted small">Aufgaben geben Punkte. Hygiene gibt KEINE Punkte.</p>
-            <div id="finalList" class="list"></div>
+            <h3>Offene Kontrollen</h3>
+            
+            <h4 style="margin-top:20px; color:var(--accent)">📋 Aufgaben (Punkte)</h4>
+            <div id="finalListTasks" class="list"></div>
             
             <div class="divider"></div>
             
-            <h3>Diagnose & Test</h3>
-            <div class="row">
-               <button id="regenTestBtn" class="btn" style="background:orange; color:black; width:100%">🛠️ TEST: Heute neu generieren</button>
-            </div>
-            <p class="muted small">Löscht alles von heute und erstellt es neu aus den Vorlagen (Wochenplan + Hygiene).</p>
+            <h4 style="color:orange">🧹 Hygiene (Keine Punkte)</h4>
+            <div id="finalListHygiene" class="list"></div>
+
+            <div class="divider"></div>
+            <h3>Diagnose</h3>
+            <div class="row"><button id="regenTestBtn" class="btn" style="background:#333; color:white; width:100%">🛠️ TEST: Heute neu generieren</button></div>
           </section>
 
           <section id="planSub" class="subtab hidden">
-            <h3>Wochenplan Aufgaben</h3>
+            <h3>Wochenplan</h3>
             <div class="grid2">
-              <label>Wochentag
-                <select id="planWeekdaySel" class="select">
-                  <option value="all">-- ALLE TAGE ANZEIGEN --</option>
-                  <option value="1">Montag</option>
-                  <option value="2">Dienstag</option>
-                  <option value="3">Mittwoch</option>
-                  <option value="4">Donnerstag</option>
-                  <option value="5">Freitag</option>
-                  <option value="6">Samstag</option>
-                  <option value="7">Sonntag</option>
-                </select>
-              </label>
-              <label>Tag (Bereich)
-                <select id="planTagSel" class="select"></select>
-              </label>
+              <label>Wochentag <select id="planWeekdaySel" class="select"><option value="all">-- ALLE --</option><option value="1">Montag</option><option value="2">Dienstag</option><option value="3">Mittwoch</option><option value="4">Donnerstag</option><option value="5">Freitag</option><option value="6">Samstag</option><option value="7">Sonntag</option></select></label>
+              <label>Tag <select id="planTagSel" class="select"></select></label>
             </div>
-            <div class="row">
-              <input id="planTaskInp" class="input" placeholder="Neue Aufgabe..." />
-              <button id="planAddBtn" class="btn ghost">Hinzufügen</button>
-            </div>
+            <div class="row"><input id="planTaskInp" class="input" placeholder="Aufgabe..." /><button id="planAddBtn" class="btn ghost">Hinzufügen</button></div>
             <div id="planList" class="list"></div>
           </section>
 
           <section id="hygieneAdminSub" class="subtab hidden">
-            <h3>1. Kategorien anlegen</h3>
-            <div class="row">
-              <input id="hygieneCatInp" class="input" placeholder="Kategorie (z.B. Küche, WC)" />
-              <button id="hygieneCatAddBtn" class="btn ghost">Kat. anlegen</button>
-            </div>
+            <h3>Kategorien</h3>
+            <div class="row"><input id="hygieneCatInp" class="input" placeholder="Name..." /><button id="hygieneCatAddBtn" class="btn ghost">Anlegen</button></div>
             <div id="hygieneCatList" class="list"></div>
-            
             <div class="divider"></div>
-            
-            <h3>2. Aufgaben-Vorlagen erstellen</h3>
-            <div class="grid2">
-              <label>Kategorie
-                <select id="hygieneItemCatSel" class="select"></select>
-              </label>
-              <label>Aufgabe
-                <input id="hygieneItemInp" class="input" placeholder="z.B. Boden wischen" />
-              </label>
-            </div>
-            <button id="hygieneItemAddBtn" class="btn ghost" style="margin-top:10px">Vorlage speichern</button>
-            
-            <div class="muted small" style="margin-top:10px">Diese Vorlagen werden jeden Tag automatisch in die Tagesliste kopiert.</div>
+            <h3>Vorlagen</h3>
+            <div class="grid2"><label>Kat <select id="hygieneItemCatSel" class="select"></select></label><input id="hygieneItemInp" class="input" placeholder="Aufgabe..." /></div>
+            <button id="hygieneItemAddBtn" class="btn ghost" style="margin-top:10px">Speichern</button>
             <div id="hygieneTemplateList" class="list"></div>
           </section>
 
           <section id="employeesSub" class="subtab hidden">
             <h3>Mitarbeiter</h3>
-            <div class="row">
-              <input id="empAdd" class="input" placeholder="Name" />
-              <button id="empAddBtn" class="btn ghost">Anlegen</button>
-            </div>
+            <div class="row"><input id="empAdd" class="input" placeholder="Name" /><button id="empAddBtn" class="btn ghost">Anlegen</button></div>
             <div id="empList" class="list"></div>
-            
             <div class="divider"></div>
-            
-            <h3>Rollen verwalten</h3>
-            <div class="row">
-              <input id="adminUidAdd" class="input" placeholder="Name für Admin" />
-              <button id="adminUidAddBtn" class="btn ghost">Admin +</button>
-            </div>
-            <div class="row">
-              <input id="superUidAdd" class="input" placeholder="Name für Superadmin" />
-              <button id="superUidAddBtn" class="btn ghost">Super +</button>
-            </div>
+            <h3>Admins</h3>
+            <div class="row"><input id="adminUidAdd" class="input" placeholder="Name" /><button id="adminUidAddBtn" class="btn ghost">Admin +</button></div>
+            <div class="row"><input id="superUidAdd" class="input" placeholder="Name" /><button id="superUidAddBtn" class="btn ghost">Super +</button></div>
           </section>
 
           <section id="tagsSub" class="subtab hidden">
             <h3>Tags</h3>
-            <div class="row">
-              <input id="tagAdd" class="input" placeholder="Tag ID" />
-              <button id="tagAddBtn" class="btn ghost">Anlegen</button>
-            </div>
+            <div class="row"><input id="tagAdd" class="input" placeholder="ID" /><button id="tagAddBtn" class="btn ghost">Anlegen</button></div>
             <div id="adminTagList" class="list"></div>
           </section>
 
           <section id="pointsSub" class="subtab hidden">
-            <h3>Punkte Übersicht</h3>
+            <h3>Punkte</h3>
             <div id="pointsList" class="list"></div>
           </section>
-
         </div>
       </section>
-
     </section>
   </main>
-
   <script type="module" src="./app.js"></script>
 </body>
 </html>
