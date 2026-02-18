@@ -9,7 +9,7 @@
   <link rel="manifest" href="./manifest.json" />
   <link rel="stylesheet" href="./styles.css" />
   <link rel="icon" href="./icon-192.png">
-  <title>Aufgabenliste ZDL RA 93</title>
+  <title>Aufgabenliste RA 93</title>
 </head>
 <body>
 
@@ -35,7 +35,6 @@
   </div>
 
   <main class="container">
-
     <section id="loginView" class="card">
       <h2>Anmeldung</h2>
       <div class="grid">
@@ -48,11 +47,11 @@
     <section id="appView" class="hidden">
       
       <section id="settingsCard" class="card hidden shadow" style="border:1px solid var(--accent); margin-bottom: 20px;">
-        <div class="row between"><h3>Einstellungen</h3><button id="closeSettingsBtn" class="btn ghost">X</button></div>
+        <div class="row between"><h3>Settings</h3><button id="closeSettingsBtn" class="btn ghost">X</button></div>
         <button id="reqPermBtn" class="btn grow">🔔 Push-Meldungen aktivieren</button>
         <div class="divider"></div>
-        <h4>🌴 Urlaubsmodus (Stummschalten)</h4>
-        <input id="muteUntilInp" class="input" type="number" placeholder="Datum bis (z.B. 20260228)" />
+        <h4>🌴 Urlaubsmodus</h4>
+        <input id="muteUntilInp" class="input" type="number" placeholder="Datum YYYYMMDD" />
         <div class="row">
           <button id="saveMuteBtn" class="btn ghost">Speichern</button>
           <button id="clearMuteBtn" class="btn danger">Urlaub beenden</button>
@@ -71,10 +70,9 @@
         <input id="tagSearch" class="search" placeholder="Bereich suchen..." />
         <div id="tagList" class="list"></div>
         <div class="divider"></div>
-        <h2 id="openTagTitle">Wähle einen Bereich</h2>
-        <div class="row"><label class="grow">Erledigt von:<select id="doneBySel" class="select" multiple size="3"></select></label></div>
+        <h2 id="openTagTitle">Bereich wählen</h2>
+        <div class="row"><select id="doneBySel" class="select" multiple size="3"></select></div>
         <button id="markSelectedDoneBtn" class="btn grow" style="margin-top:10px">✅ Erledigen</button>
-        <div id="taskHint" class="muted small" style="color:var(--accent); margin-top:5px"></div>
         <div id="taskList" class="list"></div>
       </section>
 
@@ -89,16 +87,16 @@
           <label>Fahrer <select id="rideNameSel" class="select"></select></label>
           <label>Einsatz <input id="rideEinsatz" class="input" type="number" /></label>
         </div>
-        <button id="addRideBtn" class="btn grow">Speichern (+1 Punkt)</button>
+        <button id="addRideBtn" class="btn grow">Speichern</button>
         <div id="ridesList" class="list" style="margin-top:15px"></div>
       </section>
 
       <section id="adminTab" class="tab card hidden">
         <section class="cardlite subtabs">
-          <button class="subtabbtn active" data-subtab="toolsSub">Kontrolle</button>
+          <button class="subtabbtn active" data-subtab="toolsSub">Endkontrolle</button>
           <button class="subtabbtn" data-subtab="hygieneAdminSub">GD-Setup</button>
           <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
-          <button class="subtabbtn" data-subtab="employeesSub">Personal/Tags</button>
+          <button class="subtabbtn" data-subtab="employeesSub">User/Rollen</button>
         </section>
 
         <section id="toolsSub" class="subtab">
@@ -110,47 +108,24 @@
           <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:20px">🛠️ Tag neu generieren (Reset)</button>
         </section>
 
-        <section id="hygieneAdminSub" class="subtab hidden">
-          <h3>Kategorien (z.B. Küche, RTW)</h3>
-          <div class="row"><input id="hygieneCatInp" class="input" /><button id="hygieneCatAddBtn" class="btn ghost">+</button></div>
-          <div id="hygieneCatList" class="list"></div>
-          <div class="divider"></div>
-          <h3>Aufgaben & Checkliste</h3>
-          <div class="grid2">
-            <select id="hygieneItemCatSel" class="select"></select>
-            <input id="hygieneItemInp" class="input" placeholder="Name der Aufgabe"/>
-          </div>
-          <textarea id="hygieneSubtasksInp" class="input" placeholder="Checkliste: Pro Zeile ein Punkt"></textarea>
-          <button id="hygieneItemAddBtn" class="btn grow">Speichern</button>
-          <div id="hygieneTemplateList" class="list"></div>
-        </section>
-
-        <section id="planSub" class="subtab hidden">
-          <div class="grid2">
-            <select id="planWeekdaySel" class="select"><option value="1">Mo</option><option value="2">Di</option><option value="3">Mi</option><option value="4">Do</option><option value="5">Fr</option><option value="6">Sa</option><option value="7">So</option></select>
-            <select id="planTagSel" class="select"></select>
-          </div>
-          <div class="row"><input id="planTaskInp" class="input" placeholder="Aufgabe..."/><button id="planAddBtn" class="btn ghost">+</button></div>
-          <div id="planList" class="list"></div>
-        </section>
-
         <section id="employeesSub" class="subtab hidden">
-          <h4>Mitarbeiter anlegen</h4>
+          <h4>Superadmins ernennen</h4>
+          <div class="row">
+            <input id="superUidAdd" class="input" placeholder="Name" />
+            <button id="superUidAddBtn" class="btn ghost">+</button>
+          </div>
+          <div id="superList" class="list"></div>
+          <div class="divider"></div>
+          <h4>Mitarbeiter & Tags</h4>
           <div class="row"><input id="empAdd" class="input" /><button id="empAddBtn" class="btn ghost">+</button></div>
           <div id="empList" class="list"></div>
-          <div class="divider"></div>
-          <h4>Bereiche (Tags)</h4>
-          <div class="row"><input id="tagAdd" class="input" placeholder="Tag Name" /><button id="tagAddBtn" class="btn ghost">+</button></div>
-          <div id="adminTagList" class="list"></div>
-          <div class="divider"></div>
-          <h4>Admin-Rechte</h4>
-          <div class="row"><input id="adminUidAdd" class="input" placeholder="Name" /><button id="adminUidAddBtn" class="btn ghost">+</button></div>
         </section>
 
+        <section id="hygieneAdminSub" class="subtab hidden">
+           </section>
       </section>
     </section>
   </main>
-
   <script type="module" src="./app.js"></script>
 </body>
 </html>
