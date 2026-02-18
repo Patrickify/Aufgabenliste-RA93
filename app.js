@@ -184,6 +184,26 @@ $("addRideBtn").onclick = async () => {
   setTimeout(() => $("rideInfo").textContent = "", 2000);
 };
 
+/* ---------------- Manuelle Tagesaufgabe (Admin) ---------------- */
+if ($("newDailyTaskBtn")) $("newDailyTaskBtn").onclick = async () => {
+  // 1. Prüfen, ob ein Tag geöffnet ist (wir brauchen den tagKey)
+  if (!currentTagKey) return alert("Bitte öffne zuerst einen Tag (z.B. Küche), damit die Aufgabe zugeordnet werden kann.");
+  
+  // 2. Text abfragen
+  const text = prompt("Neue Tagesaufgabe eingeben:");
+  if (!text) return;
+
+  // 3. In Datenbank speichern
+  await addDoc(collection(db, "daily_tasks"), {
+    text: text,
+    tagKey: currentTagKey,         // Zuordnung zum geöffneten Tag
+    dateKey: dayKeyNow(),          // Für heute
+    status: "open",
+    doneBy: [],
+    createdAt: serverTimestamp()
+  });
+};
+
 /* ---------------- Admin Bereich ---------------- */
 function renderAdminEmployees() {
   if (!$("empList")) return;
