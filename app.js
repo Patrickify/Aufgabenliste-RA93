@@ -6,25 +6,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 /* =========================================================
-   AUFGABENLISTE ZDL RA 93 — ULTRA STABLE PRO
-   =========================================================
-   ✅ iOS/Safari stabil: Long Polling + Snapshot-Fallback
-   ✅ Login: Name aus Liste + Passwort (1. Login setzt Passwort)
-   ✅ Wochenplan Mo–Sa (Sonntag frei) => auto Tagesaufgaben
-   ✅ Tagesaufgaben zusätzlich (Admin)
-   ✅ Tageswechsel automatisch um 00:00 (client-seitig)
-   ✅ Tasks: Mehrfachauswahl Mitarbeiter beim Abhaken
-   ✅ Nach Abhaken: für normale User unsichtbar
-   ✅ Endkontrolle im Adminbereich -> bucht Punkte (einmalig)
-   ✅ Punkte getrennt: Aufgabenpunkte / Fahrtenpunkte
-   ✅ Fahrten: 72h gespeichert + Auto Cleanup
-   ✅ Urlaubsmode (stumm bis Datum) pro Mitarbeiter
-   ✅ Rollen:
-      - Bootstrap: erster User wird Superadmin (wenn keiner existiert)
-      - Superadmin kann bis 3 Superadmins + 8 Admins verwalten
+   ULTRA STABLE PRO — USER-BASED ROLES + SELF VACATION
+   - Rollen hängen an nameKey (nicht Gerät/UID)
+     superadmins_by_name/{nameKey}
+     admins_by_name/{nameKey}
+   - Urlaub: vacations/{nameKey} (jeder nur sein eigenes)
    ========================================================= */
 
-/* ---------------- Firebase config (FIX) ---------------- */
+/* ---------------- Firebase config ---------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyCPTt1ZZ-lj5qZ1Rrn-N7e5QZnhtXB-Pu8",
   authDomain: "aufgabenliste-zdl-ra-93.firebaseapp.com",
@@ -80,8 +69,9 @@ function msUntilMidnight(){
   next.setHours(24,0,0,0);
   return next.getTime() - d.getTime();
 }
+function nowMs(){ return Date.now(); }
 
-/* --- Password hashing (simple) --- */
+/* --- Password hashing --- */
 async function sha256Hex(str){
   const enc = new TextEncoder().encode(str);
   const buf = await crypto.subtle.digest("SHA-256", enc);
@@ -89,22 +79,14 @@ async function sha256Hex(str){
   return arr.map(b => b.toString(16).padStart(2,"0")).join("");
 }
 async function passHashFor(name, pass){
-  // simple pepper = employeeKey (Name) — nicht “perfekt”, aber stabil ohne Server
   return sha256Hex(`${key(name)}:${pass}`);
 }
 
 /* =========================================================
-   ULTRA STABLE MODE: onSnapshot -> Fallback Polling
+   ULTRA STABLE LISTEN: onSnapshot -> fallback polling
    ========================================================= */
 const ULTRA_POLL_MS = 4000;
-let ultraPollTimers = [];
-function ultraClearPollers_(){
-  ultraPollTimers.forEach(t => clearInterval(t));
-  ultraPollTimers = [];
-}
-function ultraDocsToSnapLike_(docs){
-  return docs.map(d => ({ id: d.id, data: () => d.data() }));
-}
+function ultraDocsToSnapLike_(docs){ return docs.map(d => ({ id:d.id, data:()=>d.data() })); }
 function ultraListen_(q, onData){
   let unsub = null;
   let pollId = null;
@@ -121,14 +103,13 @@ function ultraListen_(q, onData){
     if(pollId) return;
     pollOnce();
     pollId = setInterval(pollOnce, ULTRA_POLL_MS);
-    ultraPollTimers.push(pollId);
     console.log("ULTRA MODE: polling enabled");
   }
 
   try{
     unsub = onSnapshot(
       q,
-      (snap)=>{ onData(ultraDocsToSnapLike_(snap.docs)); },
+      (snap)=> onData(ultraDocsToSnapLike_(snap.docs)),
       (err)=>{
         console.log("ULTRA snapshot error:", err?.message || err);
         try{ if(unsub) unsub(); }catch(e){}
@@ -141,7 +122,7 @@ function ultraListen_(q, onData){
     startPolling();
   }
 
-  return function unsubscribe(){
+  return function(){
     try{ if(unsub) unsub(); }catch(e){}
     unsub = null;
     if(pollId){ clearInterval(pollId); pollId=null; }
@@ -212,13 +193,13 @@ const forceDayChangeBtn = $("forceDayChangeBtn");
 const regenTodayBtn     = $("regenTodayBtn");
 const finalList         = $("finalList");
 
-const adminUidAdd    = $("adminUidAdd");
-const adminUidAddBtn = $("adminUidAddBtn");
-const adminUidList   = $("adminUidList");
+const adminNameKeyInp   = $("adminUidAdd");
+const adminUidAddBtn    = $("adminUidAddBtn");
+const adminUidList      = $("adminUidList");
 
-const superUidAdd    = $("superUidAdd");
-const superUidAddBtn = $("superUidAddBtn");
-const superUidList   = $("superUidList");
+const superNameKeyInp   = $("superUidAdd");
+const superUidAddBtn    = $("superUidAddBtn");
+const superUidList      = $("superUidList");
 
 const vacFrom   = $("vacFrom");
 const vacUntil  = $("vacUntil");
@@ -245,15 +226,6 @@ let myVacation = { from:"", until:"" };
 
 let unsubEmployees=null, unsubTags=null, unsubTasks=null, unsubRides=null, unsubAdmins=null, unsubSupers=null, unsubWeekly=null, unsubFinal=null;
 
-/* ---------------- Service Worker ---------------- */
-(async ()=>{
-  try{
-    if("serviceWorker" in navigator){
-      await navigator.serviceWorker.register("./sw.js", { scope:"./" });
-    }
-  }catch(e){}
-})();
-
 /* ---------------- auth helpers ---------------- */
 async function ensureAnon_(){
   if(auth.currentUser) return;
@@ -263,7 +235,7 @@ async function alertSafe_(msg){
   try{ alert(msg); }catch(e){}
 }
 
-/* ---------------- roles / counts ---------------- */
+/* ---------------- meta docs ---------------- */
 async function ensureCountsDoc_(){
   const snap = await getDoc(META_COUNTS_REF);
   if(!snap.exists()){
@@ -280,34 +252,34 @@ async function incCount_(field, delta){
   const next = Math.max(0, Number(cur[field]||0) + delta);
   await setDoc(META_COUNTS_REF, { [field]: next, updatedAt:serverTimestamp(), updatedBy:auth.currentUser.uid }, { merge:true });
 }
-
-/* bootstrap: first superadmin */
-async function bootstrapSuperAdminOnce_(){
-  const q1 = query(collection(db,"superadmins"), where("enabled","==",true), limit(1));
-  const snap = await getDocs(q1);
-  if(!snap.empty) return;
-
-  await ensureCountsDoc_();
-
-  await setDoc(doc(db,"superadmins",auth.currentUser.uid), {
-    enabled:true, addedAt:serverTimestamp(), addedBy:"BOOTSTRAP"
-  }, { merge:true });
-
-  const counts = await getCounts_();
-  if((counts.superCount||0) < 1){
-    await setDoc(META_COUNTS_REF, { superCount:1, adminCount:(counts.adminCount||0), updatedAt:serverTimestamp() }, { merge:true });
+async function ensureDayState_(){
+  const snap = await getDoc(META_DAY_REF);
+  if(!snap.exists()){
+    await setDoc(META_DAY_REF, { lastDayKey: "", updatedAt: serverTimestamp() }, { merge:true });
   }
 }
 
-/* role refresh */
+/* =========================================================
+   USER-BASED ROLES
+   ========================================================= */
 async function refreshRole_(){
   const uid = auth.currentUser.uid;
 
-  const sdoc = await getDoc(doc(db,"superadmins",uid));
-  isSuperAdmin = sdoc.exists() && sdoc.data()?.enabled === true;
+  // meKey aus users/{uid} lesen (damit Gerät 2 sofort richtig ist)
+  try{
+    const uSnap = await getDoc(doc(db,"users", uid));
+    if(uSnap.exists()){
+      const d = uSnap.data()||{};
+      if(d.nameKey) meKey = n(d.nameKey);
+      if(d.name) meName = n(d.name);
+    }
+  }catch(e){}
 
-  const adoc = await getDoc(doc(db,"admins",uid));
-  isAdmin = isSuperAdmin || (adoc.exists() && adoc.data()?.enabled === true);
+  const sdoc = meKey ? await getDoc(doc(db,"superadmins_by_name", meKey)) : null;
+  isSuperAdmin = !!(sdoc && sdoc.exists() && sdoc.data()?.enabled === true);
+
+  const adoc = meKey ? await getDoc(doc(db,"admins_by_name", meKey)) : null;
+  isAdmin = isSuperAdmin || !!(adoc && adoc.exists() && adoc.data()?.enabled === true);
 
   const label = `${meName || "—"}${isSuperAdmin ? " · SUPERADMIN" : (isAdmin ? " · ADMIN" : "")}`;
   if(whoami) whoami.textContent = label;
@@ -316,26 +288,39 @@ async function refreshRole_(){
   show(adminLock, !isAdmin);
   show(adminArea, isAdmin);
 
+  if(adminTabBtn) adminTabBtn.classList.toggle("hidden", !isAdmin);
+  show(newDailyTaskBtn, isAdmin);
+
   if(adminUidAddBtn) adminUidAddBtn.disabled = !isSuperAdmin;
   if(superUidAddBtn) superUidAddBtn.disabled = !isSuperAdmin;
-
-  // Admin Tab button verstecken für normale User
-  if(adminTabBtn) adminTabBtn.classList.toggle("hidden", !isAdmin);
-
-  // Daily task add button nur Admin
-  show(newDailyTaskBtn, isAdmin);
 }
 
-/* ---------------- UI: Tabs ---------------- */
+/* bootstrap: erster Benutzer wird Superadmin (wenn keiner existiert) */
+async function bootstrapSuperAdminForMeIfNone_(){
+  if(!meKey) return;
+  const q1 = query(collection(db,"superadmins_by_name"), where("enabled","==",true), limit(1));
+  const snap = await getDocs(q1);
+  if(!snap.empty) return;
+
+  await ensureCountsDoc_();
+  await setDoc(doc(db,"superadmins_by_name", meKey), {
+    enabled:true, addedAt:serverTimestamp(), addedBy:"BOOTSTRAP", name: meName
+  }, { merge:true });
+
+  const counts = await getCounts_();
+  if((counts.superCount||0) < 1){
+    await setDoc(META_COUNTS_REF, { superCount:1, adminCount:(counts.adminCount||0), updatedAt:serverTimestamp() }, { merge:true });
+  }
+}
+
+/* ---------------- UI Tabs ---------------- */
 function setTab(tabId){
   document.querySelectorAll(".tab").forEach(t=>t.classList.add("hidden"));
   const el = $(tabId);
   el && el.classList.remove("hidden");
   tabBtns.forEach(b=>b.classList.toggle("active", b.dataset.tab===tabId));
 }
-tabBtns.forEach(btn=>{
-  btn.addEventListener("click", ()=> setTab(btn.dataset.tab));
-});
+tabBtns.forEach(btn=> btn.addEventListener("click", ()=> setTab(btn.dataset.tab)));
 setTab("tasksTab");
 
 function setSubtab(subId){
@@ -344,21 +329,17 @@ function setSubtab(subId){
   el && el.classList.remove("hidden");
   subtabBtns.forEach(b=>b.classList.toggle("active", b.dataset.subtab===subId));
 }
-subtabBtns.forEach(btn=>{
-  btn.addEventListener("click", ()=> setSubtab(btn.dataset.subtab));
-});
+subtabBtns.forEach(btn=> btn.addEventListener("click", ()=> setSubtab(btn.dataset.subtab)));
 setSubtab("employeesSub");
 
 /* ---------------- UI actions ---------------- */
 reloadBtn && (reloadBtn.onclick = () => location.reload());
-
 logoutBtn && (logoutBtn.onclick = async () => {
   try{ await signOut(auth); }catch(e){}
   localStorage.removeItem("meName");
   localStorage.removeItem("meKey");
   location.reload();
 });
-
 showUidBtn && (showUidBtn.onclick = async () => {
   await ensureAnon_();
   const uid = auth.currentUser.uid;
@@ -373,11 +354,10 @@ copyUidBtn && (copyUidBtn.onclick = async () => {
   catch(e){ await alertSafe_(uid); }
 });
 
-/* ---------------- Employees seed (Patrick) ---------------- */
+/* ---------------- seed employee ---------------- */
 async function seedFirstEmployeeIfEmpty_(){
   const snap = await getDocs(query(collection(db,"employees"), limit(1)));
   if(!snap.empty) return;
-
   const firstName = "Patrick";
   await setDoc(doc(db,"employees", key(firstName)), {
     name: firstName,
@@ -388,7 +368,7 @@ async function seedFirstEmployeeIfEmpty_(){
   }, { merge:true });
 }
 
-/* ---------------- Login (Name + Passwort) ---------------- */
+/* ---------------- Vacation (SELF) ---------------- */
 async function loadVacation_(){
   if(!meKey) return;
   const ref = doc(db,"vacations", meKey);
@@ -416,7 +396,24 @@ function renderVacationInfo_(){
     vacInfo.textContent = "Kein Urlaub aktiv.";
   }
 }
+vacSaveBtn && (vacSaveBtn.onclick = async ()=>{
+  if(!meKey){ await alertSafe_("Bitte einloggen."); return; }
+  const f = n(vacFrom?.value);
+  const u = n(vacUntil?.value);
+  if(!/^\d{8}$/.test(f) || !/^\d{8}$/.test(u)){
+    await alertSafe_("Bitte Datum als YYYYMMDD eingeben.");
+    return;
+  }
+  await setDoc(doc(db,"vacations", meKey), { name:meName, from:f, until:u, updatedAt:serverTimestamp() }, { merge:true });
+  await loadVacation_();
+});
+vacClearBtn && (vacClearBtn.onclick = async ()=>{
+  if(!meKey){ await alertSafe_("Bitte einloggen."); return; }
+  await deleteDoc(doc(db,"vacations", meKey));
+  await loadVacation_();
+});
 
+/* ---------------- Login ---------------- */
 loginBtn && (loginBtn.onclick = async () => {
   loginErr && (loginErr.textContent = "");
   const nm = n(nameSel?.value);
@@ -427,20 +424,28 @@ loginBtn && (loginBtn.onclick = async () => {
 
   await ensureAnon_();
 
-  // load employee doc
-  const eRef = doc(db,"employees", key(nm));
+  const nameKey = key(nm);
+
+  // users/{uid} zuerst schreiben (Rules nutzen das für self-check)
+  await setDoc(doc(db,"users",auth.currentUser.uid), {
+    name: nm,
+    nameKey: nameKey,
+    updatedAt: serverTimestamp()
+  }, { merge:true });
+
+  const eRef = doc(db,"employees", nameKey);
   const eSnap = await getDoc(eRef);
   if(!eSnap.exists()){
     if(loginErr) loginErr.textContent="Dieser Name existiert nicht. Admin muss ihn anlegen.";
     return;
   }
+
   const eData = eSnap.data()||{};
   const existing = n(eData.passHash||"");
-
   const h = await passHashFor(nm, pw);
 
   if(!existing){
-    // first login sets password (rules allow only if empty)
+    // erstes Login setzt Passwort
     await setDoc(eRef, { passHash: h, updatedAt: serverTimestamp() }, { merge:true });
   } else {
     if(existing !== h){
@@ -450,26 +455,24 @@ loginBtn && (loginBtn.onclick = async () => {
   }
 
   meName = nm;
-  meKey = key(nm);
+  meKey  = nameKey;
   localStorage.setItem("meName", meName);
   localStorage.setItem("meKey", meKey);
 
-  await setDoc(doc(db,"users",auth.currentUser.uid), { name:meName, updatedAt:serverTimestamp() }, { merge:true });
-
+  await bootstrapSuperAdminForMeIfNone_();
   await refreshRole_();
   await loadVacation_();
 
   enterApp_();
 });
 
-/* ---------------- enter app ---------------- */
 function enterApp_(){
   show(loginView,false);
   show(appView,true);
   setTab("tasksTab");
 }
 
-/* ---------------- selectors render ---------------- */
+/* ---------------- render selectors ---------------- */
 function renderEmployeeSelectors_(){
   const opts = [`<option value="">Name wählen…</option>`].concat(
     employees.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`)
@@ -478,7 +481,6 @@ function renderEmployeeSelectors_(){
   if(nameSel) nameSel.innerHTML = opts;
   if(rideNameSel) rideNameSel.innerHTML = opts;
 
-  // multi select doneBy
   if(doneBySel){
     doneBySel.innerHTML = employees.map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join("");
   }
@@ -521,7 +523,6 @@ function renderTags_(){
     tagList.appendChild(div);
   });
 }
-
 function renderAdminTags_(){
   if(!adminTagList) return;
   adminTagList.innerHTML = "";
@@ -544,13 +545,12 @@ function renderAdminTags_(){
     adminTagList.appendChild(div);
   });
 }
-
 function renderPlanTagSel_(){
   if(!planTagSel) return;
   planTagSel.innerHTML = tags.map(t=>`<option value="${esc(t.tagId||t.id)}">${esc(t.tagId||t.id)}</option>`).join("");
 }
 
-/* ---------------- open/close tag ---------------- */
+/* ---------------- open tag ---------------- */
 closeTagBtn && (closeTagBtn.onclick = () => closeTag_());
 
 async function openTag_(tagId){
@@ -563,7 +563,6 @@ async function openTag_(tagId){
 
   await listenTasksForCurrentTag_();
 }
-
 function closeTag_(){
   currentTagId = "";
   currentTagKey = "";
@@ -574,16 +573,13 @@ function closeTag_(){
   if(unsubTasks){ unsubTasks(); unsubTasks=null; }
 }
 
-/* ---------------- tasks (daily) ---------------- */
+/* ---------------- tasks daily ---------------- */
 async function listenTasksForCurrentTag_(){
   if(!currentTagKey) return;
-
   if(unsubTasks) unsubTasks();
 
   const today = dayKeyNow();
 
-  // Normale User sehen nur offene (status=="open")
-  // Admin sieht alles
   const q = isAdmin
     ? query(collection(db,"daily_tasks"),
         where("dateKey","==",today),
@@ -647,13 +643,12 @@ function renderTasks_(tasks){
   });
 }
 
-/* Mark done with multi selection */
+/* mark done with multi selection */
 markSelectedDoneBtn && (markSelectedDoneBtn.onclick = async ()=>{
   if(!selectedTaskId){ await alertSafe_("Bitte erst eine Aufgabe auswählen."); return; }
   const selected = Array.from(doneBySel?.selectedOptions||[]).map(o=>n(o.value)).filter(Boolean);
-
   if(!selected.length){
-    await alertSafe_("Bitte mindestens einen Mitarbeiter auswählen (Mehrfachauswahl).");
+    await alertSafe_("Bitte mindestens einen Mitarbeiter auswählen.");
     return;
   }
 
@@ -677,14 +672,14 @@ markSelectedDoneBtn && (markSelectedDoneBtn.onclick = async ()=>{
   if(taskHint) taskHint.textContent = "";
 });
 
-/* Admin: add daily task */
+/* admin add daily task */
 newDailyTaskBtn && (newDailyTaskBtn.onclick = async ()=>{
   if(!isAdmin){ await alertSafe_("Nur Admin."); return; }
   if(!currentTagKey){ await alertSafe_("Erst Tag öffnen."); return; }
   const t = prompt("Neue Tagesaufgabe:");
   if(!t) return;
-  const today = dayKeyNow();
 
+  const today = dayKeyNow();
   await addDoc(collection(db,"daily_tasks"), {
     dateKey: today,
     tagId: currentTagId,
@@ -726,7 +721,6 @@ planAddBtn && (planAddBtn.onclick = async ()=>{
   if(planTaskInp) planTaskInp.value = "";
 });
 
-/* Render weekly plan list (filtered by weekday + tag) */
 function renderWeeklyList_(rows){
   if(!planList) return;
   planList.innerHTML = "";
@@ -760,18 +754,10 @@ function renderWeeklyList_(rows){
   });
 }
 
-/* ---------------- day change + generation ---------------- */
-async function ensureDayState_(){
-  const snap = await getDoc(META_DAY_REF);
-  if(!snap.exists()){
-    await setDoc(META_DAY_REF, { lastDayKey: "", updatedAt: serverTimestamp() }, { merge:true });
-  }
-}
-
-/* Create today's daily tasks from weekly plan (Mo-Sa only) */
+/* create today tasks from weekly */
 async function generateTodayFromWeekly_(todayKey){
   const wd = weekdayNow();
-  if(wd === 7) return; // Sonntag frei
+  if(wd === 7) return;
 
   const weeklyQ = query(
     collection(db,"weekly_tasks"),
@@ -782,8 +768,6 @@ async function generateTodayFromWeekly_(todayKey){
   );
   const snap = await getDocs(weeklyQ);
 
-  // create tasks if not already existing (avoid duplicates by checking key)
-  // We'll build a set of existing (tagKey|text)
   const existingQ = query(collection(db,"daily_tasks"), where("dateKey","==",todayKey));
   const exSnap = await getDocs(existingQ);
   const exSet = new Set(exSnap.docs.map(d=>{
@@ -822,7 +806,7 @@ async function generateTodayFromWeekly_(todayKey){
   if(created>0) await batch.commit();
 }
 
-/* Day change: archive yesterday + cleanup + generate today */
+/* day change */
 async function runDayChange_(){
   const today = dayKeyNow();
 
@@ -830,15 +814,10 @@ async function runDayChange_(){
   const stateSnap = await getDoc(META_DAY_REF);
   const last = stateSnap.exists() ? n((stateSnap.data()||{}).lastDayKey) : "";
 
-  if(last === today){
-    // already done
-    return;
-  }
+  if(last === today) return;
 
-  // archive all daily_tasks of LAST day (if exists)
   if(last){
     const snap = await getDocs(query(collection(db,"daily_tasks"), where("dateKey","==",last)));
-    // archive into archives/{day}/tasks/{id}
     const batch = writeBatch(db);
     snap.docs.forEach(d=>{
       batch.set(doc(db,"archives", last, "tasks", d.id), { ...d.data(), archivedAt: serverTimestamp() }, { merge:true });
@@ -847,22 +826,15 @@ async function runDayChange_(){
     if(!snap.empty) await batch.commit();
   }
 
-  // update state
   await setDoc(META_DAY_REF, { lastDayKey: today, updatedAt: serverTimestamp(), updatedBy: auth.currentUser.uid }, { merge:true });
-
-  // generate today from weekly
   await generateTodayFromWeekly_(today);
-
-  // cleanup rides older than 72h
   await cleanupRides72h_();
 }
 
-/* schedule at midnight */
 function scheduleMidnightJob_(){
   setTimeout(async ()=>{
     try{
       await runDayChange_();
-      // refresh tasks if tag opened
       if(currentTagKey) await listenTasksForCurrentTag_();
       await refreshFinalList_();
       await refreshPointsList_();
@@ -871,7 +843,6 @@ function scheduleMidnightJob_(){
   }, msUntilMidnight() + 1000);
 }
 
-/* Admin button: force daychange */
 forceDayChangeBtn && (forceDayChangeBtn.onclick = async ()=>{
   if(!isAdmin){ await alertSafe_("Nur Admin."); return; }
   if(!confirm("Tageswechsel jetzt ausführen?")) return;
@@ -879,46 +850,40 @@ forceDayChangeBtn && (forceDayChangeBtn.onclick = async ()=>{
   await alertSafe_("Tageswechsel ✓");
 });
 
-/* Admin button: regen today from weekly */
 regenTodayBtn && (regenTodayBtn.onclick = async ()=>{
   if(!isAdmin){ await alertSafe_("Nur Admin."); return; }
-  const today = dayKeyNow();
-  await generateTodayFromWeekly_(today);
+  await generateTodayFromWeekly_(dayKeyNow());
   await alertSafe_("Heute neu erzeugt ✓");
 });
 
-/* ---------------- final check + points booking ---------------- */
-async function bookTaskPointsOnce_(taskDoc){
-  if(taskDoc.pointsBooked) return;
-  const people = Array.isArray(taskDoc.doneBy) ? uniq(taskDoc.doneBy) : [];
-  if(!people.length) return;
+/* ---------------- points ---------------- */
+async function addTaskPoint_(name){
+  const id = key(name);
+  const ref = doc(db,"points_tasks", id);
+  const snap = await getDoc(ref);
+  const cur = snap.exists() ? Number((snap.data()||{}).points||0) : 0;
+  await setDoc(ref, { name, points: cur + 1, updatedAt: serverTimestamp() }, { merge:true });
+}
+async function addRidePoint_(name){
+  const id = key(name);
+  const ref = doc(db,"points_rides", id);
+  const snap = await getDoc(ref);
+  const cur = snap.exists() ? Number((snap.data()||{}).points||0) : 0;
+  await setDoc(ref, { name, points: cur + 1, updatedAt: serverTimestamp() }, { merge:true });
+}
+async function bookTaskPointsOnce_(taskId){
+  const ref = doc(db,"daily_tasks", taskId);
+  const snap = await getDoc(ref);
+  if(!snap.exists()) return;
+  const t = snap.data()||{};
+  if(t.pointsBooked) return;
 
-  const batch = writeBatch(db);
-  people.forEach(p=>{
-    const pk = key(p);
-    const ref = doc(db,"points_tasks", pk);
-    batch.set(ref, { name: p, points: 0 }, { merge:true });
-    batch.update(ref, { points: (Number.NaN) }); // placeholder to force? not allowed
-  });
+  const people = Array.isArray(t.doneBy) ? uniq(t.doneBy) : [];
+  for(const p of people) await addTaskPoint_(p);
 
-  // Firestore doesn't support atomic increment without import.
-  // We'll do read-modify-write per person (safe enough small scale).
-  // (kept simple for iPad-only)
-  await Promise.all(people.map(async p=>{
-    const pk = key(p);
-    const ref = doc(db,"points_tasks", pk);
-    const snap = await getDoc(ref);
-    const cur = snap.exists() ? Number((snap.data()||{}).points||0) : 0;
-    await setDoc(ref, { name:p, points: cur + 1, updatedAt: serverTimestamp() }, { merge:true });
-  }));
-
-  await updateDoc(doc(db,"daily_tasks", taskDoc.id), {
-    pointsBooked: true,
-    updatedAt: serverTimestamp()
-  });
+  await updateDoc(ref, { pointsBooked:true, updatedAt: serverTimestamp() });
 }
 
-/* Admin: final list shows DONE but not finalOk */
 async function refreshFinalList_(){
   if(!isAdmin || !finalList) { if(finalList) finalList.innerHTML=""; return; }
 
@@ -931,9 +896,8 @@ async function refreshFinalList_(){
     orderBy("text")
   );
 
-  // live with stable listener
   if(unsubFinal) unsubFinal();
-  unsubFinal = ultraListen_(q, async (docs)=>{
+  unsubFinal = ultraListen_(q, (docs)=>{
     const rows = docs.map(d=>({ id:d.id, ...d.data() }));
     finalList.innerHTML = "";
 
@@ -951,7 +915,7 @@ async function refreshFinalList_(){
           <div class="sub muted small">Tag: ${esc(r.tagId||"")} · Erledigt von: ${esc((r.doneBy||[]).join(", "))}</div>
         </div>
         <div class="actions">
-          <button class="btn ghost" data-final="1">${r.finalOk ? "🧾 OK" : "🧾 Endkontrolle"}</button>
+          <button class="btn ghost" data-final="1">🧾 Endkontrolle</button>
         </div>
       `;
       div.querySelector('[data-final="1"]').onclick = async ()=>{
@@ -959,10 +923,8 @@ async function refreshFinalList_(){
         const snap = await getDoc(ref);
         if(!snap.exists()) return;
         const t = snap.data()||{};
-        if(t.finalOk){
-          await alertSafe_("Endkontrolle ist bereits gesetzt.");
-          return;
-        }
+        if(t.finalOk){ await alertSafe_("Endkontrolle ist bereits gesetzt."); return; }
+
         await updateDoc(ref, {
           finalOk: true,
           finalBy: meName || "Admin",
@@ -971,9 +933,7 @@ async function refreshFinalList_(){
           updatedAt: serverTimestamp()
         });
 
-        // points book now
-        await bookTaskPointsOnce_({ id:r.id, ...t });
-
+        await bookTaskPointsOnce_(r.id);
         await refreshPointsList_();
       };
       finalList.appendChild(div);
@@ -981,11 +941,9 @@ async function refreshFinalList_(){
   });
 }
 
-/* ---------------- points list ---------------- */
 async function refreshPointsList_(){
   if(!pointsList) return;
 
-  // read both collections, merge by name
   const [tSnap, rSnap] = await Promise.all([
     getDocs(query(collection(db,"points_tasks"), orderBy("name"))).catch(()=>({docs:[]})),
     getDocs(query(collection(db,"points_rides"), orderBy("name"))).catch(()=>({docs:[]})),
@@ -1019,9 +977,7 @@ async function refreshPointsList_(){
         <div class="title">${esc(r.name)}</div>
         <div class="sub muted small">Aufgabenpunkte: ${r.taskPoints} · Fahrtenpunkte: ${r.ridePoints}</div>
       </div>
-      ${isAdmin ? `<div class="actions">
-        <button class="btn ghost" data-edit="1">Bearbeiten</button>
-      </div>` : ``}
+      ${isAdmin ? `<div class="actions"><button class="btn ghost" data-edit="1">Bearbeiten</button></div>` : ``}
     `;
     if(isAdmin){
       div.querySelector('[data-edit="1"]').onclick = async ()=>{
@@ -1041,16 +997,6 @@ async function refreshPointsList_(){
 }
 
 /* ---------------- rides (72h) ---------------- */
-function nowMs(){ return Date.now(); }
-
-async function addRidePoint_(name){
-  const id = key(name);
-  const ref = doc(db,"points_rides", id);
-  const snap = await getDoc(ref);
-  const cur = snap.exists() ? Number((snap.data()||{}).points||0) : 0;
-  await setDoc(ref, { name, points: cur + 1, updatedAt: serverTimestamp() }, { merge:true });
-}
-
 addRideBtn && (addRideBtn.onclick = async ()=>{
   const nm = n(rideNameSel?.value) || meName;
   const eins = n(rideEinsatz?.value);
@@ -1071,6 +1017,7 @@ addRideBtn && (addRideBtn.onclick = async ()=>{
   if(rideEinsatz) rideEinsatz.value = "";
   if(rideInfo) rideInfo.textContent = "Gespeichert ✓ (+1 Fahrtenpunkt)";
   setTimeout(()=>{ if(rideInfo) rideInfo.textContent=""; }, 1500);
+
   await refreshPointsList_();
 });
 
@@ -1094,7 +1041,6 @@ function renderRides_(rows){
   }
 
   rows.sort((a,b)=>Number(b.createdMs||0)-Number(a.createdMs||0));
-
   rows.forEach(r=>{
     const div = document.createElement("div");
     div.className="item";
@@ -1165,11 +1111,8 @@ async function deleteTagWithTasks_(tagKeyStr, tagIdStr){
   if(!confirm(`Tag "${tagIdStr}" + ALLE Aufgaben (heute & Wochenplan) löschen?`)) return;
 
   const batch = writeBatch(db);
-
-  // delete tag
   batch.delete(doc(db,"tags",tagKeyStr));
 
-  // delete daily tasks today with this tag
   const today = dayKeyNow();
   const tSnap = await getDocs(query(collection(db,"daily_tasks"),
     where("dateKey","==",today),
@@ -1177,7 +1120,6 @@ async function deleteTagWithTasks_(tagKeyStr, tagIdStr){
   ));
   tSnap.docs.forEach(d=>batch.delete(d.ref));
 
-  // delete weekly tasks for this tag
   const wSnap = await getDocs(query(collection(db,"weekly_tasks"), where("tagKey","==",tagKeyStr)));
   wSnap.docs.forEach(d=>batch.delete(d.ref));
 
@@ -1185,11 +1127,11 @@ async function deleteTagWithTasks_(tagKeyStr, tagIdStr){
   await alertSafe_("Gelöscht ✓");
 }
 
-/* ---------------- roles management ---------------- */
+/* ---------------- roles management (BY NAMEKEY) ---------------- */
 adminUidAddBtn && (adminUidAddBtn.onclick = async ()=>{
   if(!isSuperAdmin){ await alertSafe_("Nur Superadmin."); return; }
-  const uid = n(adminUidAdd?.value);
-  if(!uid){ await alertSafe_("UID fehlt."); return; }
+  const nk = key(n(adminNameKeyInp?.value));
+  if(!nk){ await alertSafe_("NameKey fehlt (z.B. patrick)."); return; }
 
   await ensureCountsDoc_();
   const counts = await getCounts_();
@@ -1198,15 +1140,16 @@ adminUidAddBtn && (adminUidAddBtn.onclick = async ()=>{
     return;
   }
 
-  await setDoc(doc(db,"admins",uid), { enabled:true, addedAt:serverTimestamp(), addedBy:auth.currentUser.uid }, { merge:true });
+  await setDoc(doc(db,"admins_by_name", nk), { enabled:true, addedAt:serverTimestamp(), addedBy:meKey, nameKey:nk }, { merge:true });
   await incCount_("adminCount", +1);
-  if(adminUidAdd) adminUidAdd.value = "";
+
+  if(adminNameKeyInp) adminNameKeyInp.value = "";
 });
 
 superUidAddBtn && (superUidAddBtn.onclick = async ()=>{
   if(!isSuperAdmin){ await alertSafe_("Nur Superadmin."); return; }
-  const uid = n(superUidAdd?.value);
-  if(!uid){ await alertSafe_("UID fehlt."); return; }
+  const nk = key(n(superNameKeyInp?.value));
+  if(!nk){ await alertSafe_("NameKey fehlt (z.B. patrick)."); return; }
 
   await ensureCountsDoc_();
   const counts = await getCounts_();
@@ -1215,9 +1158,10 @@ superUidAddBtn && (superUidAddBtn.onclick = async ()=>{
     return;
   }
 
-  await setDoc(doc(db,"superadmins",uid), { enabled:true, addedAt:serverTimestamp(), addedBy:auth.currentUser.uid }, { merge:true });
+  await setDoc(doc(db,"superadmins_by_name", nk), { enabled:true, addedAt:serverTimestamp(), addedBy:meKey, nameKey:nk }, { merge:true });
   await incCount_("superCount", +1);
-  if(superUidAdd) superUidAdd.value = "";
+
+  if(superNameKeyInp) superNameKeyInp.value = "";
 });
 
 function renderAdmins_(rows){
@@ -1232,7 +1176,7 @@ function renderAdmins_(rows){
     div.className="item";
     div.innerHTML = `
       <div class="main">
-        <div class="title">ADMIN UID: ${esc(r.id)}</div>
+        <div class="title">ADMIN: ${esc(r.id)}</div>
         <div class="sub muted small">enabled: ${String(r.enabled===true)}</div>
       </div>
       <div class="actions"><button class="btn danger">Entfernen</button></div>
@@ -1240,8 +1184,8 @@ function renderAdmins_(rows){
     div.querySelector("button").onclick = async ()=>{
       if(!isSuperAdmin){ await alertSafe_("Nur Superadmin."); return; }
       if(!confirm("Admin entfernen?")) return;
-      await deleteDoc(doc(db,"admins",r.id));
-      await incCount_("adminCount",-1);
+      await deleteDoc(doc(db,"admins_by_name", r.id));
+      await incCount_("adminCount", -1);
     };
     adminUidList.appendChild(div);
   });
@@ -1258,7 +1202,7 @@ function renderSuperAdmins_(rows){
     div.className="item";
     div.innerHTML = `
       <div class="main">
-        <div class="title">SUPERADMIN UID: ${esc(r.id)}</div>
+        <div class="title">SUPERADMIN: ${esc(r.id)}</div>
         <div class="sub muted small">enabled: ${String(r.enabled===true)}</div>
       </div>
       <div class="actions"><button class="btn danger">Entfernen</button></div>
@@ -1271,30 +1215,12 @@ function renderSuperAdmins_(rows){
         return;
       }
       if(!confirm("Superadmin entfernen?")) return;
-      await deleteDoc(doc(db,"superadmins",r.id));
-      await incCount_("superCount",-1);
+      await deleteDoc(doc(db,"superadmins_by_name", r.id));
+      await incCount_("superCount", -1);
     };
     superUidList.appendChild(div);
   });
 }
-
-/* ---------------- vacation ---------------- */
-vacSaveBtn && (vacSaveBtn.onclick = async ()=>{
-  if(!meKey){ await alertSafe_("Bitte einloggen."); return; }
-  const f = n(vacFrom?.value);
-  const u = n(vacUntil?.value);
-  if(!/^\d{8}$/.test(f) || !/^\d{8}$/.test(u)){
-    await alertSafe_("Bitte Datum als YYYYMMDD eingeben.");
-    return;
-  }
-  await setDoc(doc(db,"vacations", meKey), { name:meName, from:f, until:u, updatedAt:serverTimestamp() }, { merge:true });
-  await loadVacation_();
-});
-vacClearBtn && (vacClearBtn.onclick = async ()=>{
-  if(!meKey){ await alertSafe_("Bitte einloggen."); return; }
-  await deleteDoc(doc(db,"vacations", meKey));
-  await loadVacation_();
-});
 
 /* ---------------- streams ---------------- */
 async function startStreams_(){
@@ -1325,10 +1251,11 @@ async function startStreams_(){
     renderRides_(rows);
   });
 
-  // weekly plan list: filtered by weekday + tag selection
+  // weekly list filtered
   const refreshWeekly = ()=>{
     if(!isAdmin || !planList) return;
     if(unsubWeekly) unsubWeekly();
+
     const wd = Number(planWeekdaySel?.value||1);
     const tagId = n(planTagSel?.value);
     const tk = key(tagId);
@@ -1346,64 +1273,57 @@ async function startStreams_(){
   };
   planWeekdaySel && (planWeekdaySel.onchange = refreshWeekly);
   planTagSel && (planTagSel.onchange = refreshWeekly);
+  setTimeout(()=>{ try{ refreshWeekly(); }catch(e){} }, 600);
 
-  // admins / superadmins (only admin view)
+  // roles lists (admin)
   if(unsubAdmins) unsubAdmins();
-  unsubAdmins = ultraListen_(query(collection(db,"admins"), orderBy("addedAt")), (docs)=>{
+  unsubAdmins = ultraListen_(query(collection(db,"admins_by_name"), orderBy("addedAt")), (docs)=>{
     if(!isAdmin){ if(adminUidList) adminUidList.innerHTML=""; return; }
     renderAdmins_(docs.map(d=>({ id:d.id, ...d.data() })));
   });
 
   if(unsubSupers) unsubSupers();
-  unsubSupers = ultraListen_(query(collection(db,"superadmins"), orderBy("addedAt")), (docs)=>{
+  unsubSupers = ultraListen_(query(collection(db,"superadmins_by_name"), orderBy("addedAt")), (docs)=>{
     if(!isAdmin){ if(superUidList) superUidList.innerHTML=""; return; }
     renderSuperAdmins_(docs.map(d=>({ id:d.id, ...d.data() })));
   });
 
   tagSearch && (tagSearch.oninput = ()=>renderTags_());
 
-  // final list
   await refreshFinalList_();
-
-  // initial weekly list render when admin
-  setTimeout(()=>{ try{ refreshWeekly(); }catch(e){} }, 600);
 }
 
 /* ---------------- init ---------------- */
 onAuthStateChanged(auth, async ()=>{
   await ensureAnon_();
 
-  // show day badge
   if(dayKeyBadge) dayKeyBadge.textContent = dayKeyNow();
 
   await ensureCountsDoc_();
   await ensureDayState_();
-  await bootstrapSuperAdminOnce_();
   await seedFirstEmployeeIfEmpty_();
 
-  // auto daychange (also handles “nachholen”)
+  // Auto daychange + midnight
   await runDayChange_();
   scheduleMidnightJob_();
 
-  // periodic cleanup rides
+  // hourly rides cleanup
   setInterval(()=>{ cleanupRides72h_().catch(()=>{}); }, 60*60*1000);
 
-  // restore login info
-  const stored = n(localStorage.getItem("meName"));
-  if(stored){
-    meName = stored;
-    meKey  = n(localStorage.getItem("meKey")) || key(meName);
-  }
+  // restore
+  const storedName = n(localStorage.getItem("meName"));
+  const storedKey  = n(localStorage.getItem("meKey"));
+  if(storedName) meName = storedName;
+  if(storedKey)  meKey = storedKey;
 
   await refreshRole_();
   await startStreams_();
   await refreshPointsList_();
 
-  if(meName){
+  if(meKey){
     await loadVacation_();
-    enterApp_();
-    // if tag already open, reload tasks
-    if(currentTagKey) await listenTasksForCurrentTag_();
+    show(loginView,false);
+    show(appView,true);
   } else {
     show(loginView,true);
     show(appView,false);
