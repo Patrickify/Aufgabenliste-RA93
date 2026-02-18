@@ -39,7 +39,7 @@
       <section class="card tabs">
         <button class="tabbtn active" data-tab="tasksTab">Aufgaben</button>
         
-        <button class="tabbtn" data-tab="hygieneTab">Hygiene</button>
+        <button class="tabbtn" data-tab="hygieneTab">Grunddesinfektion</button>
         
         <button class="tabbtn" data-tab="ridesTab">Fahrten</button>
         <button class="tabbtn" data-tab="adminTab" id="adminTabBtn">Admin</button>
@@ -59,7 +59,7 @@
 
       <section id="hygieneTab" class="tab card hidden">
         <div class="row between">
-          <h2>Hygiene Checklisten</h2>
+          <h2>Grunddesinfektion</h2>
           <span class="pill">Täglich</span>
         </div>
         <p class="muted small">Bitte Kategorien öffnen und Aufgaben abhaken.</p>
@@ -72,7 +72,7 @@
           <label>Fahrer <select id="rideNameSel" class="select"></select></label>
           <label>Einsatz <input id="rideEinsatz" class="input" type="number" /></label>
         </div>
-        <div class="row"><button id="addRideBtn" class="btn grow">Fahrt speichern</button></div>
+        <div class="row"><button id="addRideBtn" class="btn grow">Fahrt speichern (+1 Pkt)</button></div>
         <span id="rideInfo" class="muted small" style="color:var(--accent)"></span>
         <div class="divider"></div>
         <div id="ridesList" class="list"></div>
@@ -86,7 +86,9 @@
           <section class="cardlite subtabs">
             <button class="subtabbtn active" data-subtab="toolsSub">Endkontrolle</button>
             <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
-            <button class="subtabbtn" data-subtab="hygieneAdminSub">Hygiene-Setup</button>
+            
+            <button class="subtabbtn" data-subtab="hygieneAdminSub">Grunddesinfektion-Setup</button>
+            
             <button class="subtabbtn" data-subtab="employeesSub">User/Rollen</button>
             <button class="subtabbtn" data-subtab="tagsSub">Tags</button>
             <button class="subtabbtn" data-subtab="pointsSub">Punkte</button>
@@ -100,7 +102,7 @@
             
             <div class="divider"></div>
             
-            <h4 style="color:orange">🧹 Hygiene (Keine Punkte)</h4>
+            <h4 style="color:orange">🧹 Grunddesinfektion (Keine Punkte)</h4>
             <div id="finalListHygiene" class="list"></div>
 
             <div class="divider"></div>
