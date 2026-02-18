@@ -1,0 +1,53 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "daily_tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dateKey", "order": "ASCENDING" },
+        { "fieldPath": "tagKey", "order": "ASCENDING" },
+        { "fieldPath": "text", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "daily_tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dateKey", "order": "ASCENDING" },
+        { "fieldPath": "tagKey", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "text", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "daily_tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dateKey", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "tagKey", "order": "ASCENDING" },
+        { "fieldPath": "text", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "weekly_tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "weekday", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "tagKey", "order": "ASCENDING" },
+        { "fieldPath": "text", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "weekly_tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "weekday", "order": "ASCENDING" },
+        { "fieldPath": "tagKey", "order": "ASCENDING" },
+        { "fieldPath": "text", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
