@@ -9,23 +9,24 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="RA93">
+  <meta name="apple-mobile-web-app-title" content="Aufgaben RA93">
 
   <link rel="manifest" href="./manifest.json" />
+  <link rel="stylesheet" href="./styles.css" />
+
+  <!-- Icons -->
   <link rel="icon" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
 
-  <link rel="stylesheet" href="./styles.css" />
   <title>Aufgabenliste ZDL RA 93</title>
 </head>
-
 <body>
   <header class="topbar">
     <div class="brand">Aufgabenliste ZDL RA 93</div>
     <div class="right">
       <span id="whoami" class="who">—</span>
       <button id="reloadBtn" class="btn ghost">Neu laden</button>
-      <button id="logoutBtn" class="btn ghost hidden">Logout</button>
+      <button id="logoutBtn" class="btn ghost">Logout</button>
     </div>
   </header>
 
@@ -34,26 +35,26 @@
     <!-- LOGIN -->
     <section id="loginView" class="card">
       <h2>Anmeldung</h2>
-      <p class="muted">Name aus Liste wählen + Passwort. (Beim ersten Login setzt du dein Passwort.)</p>
+      <p class="muted">Name aus Liste wählen. Passwort wird beim ersten Login festgelegt.</p>
 
       <div class="grid">
-        <label>Mitarbeiter
+        <label>Benutzername
           <select id="nameSel" class="select"></select>
         </label>
 
         <label>Passwort
-          <input id="pwInp" class="input" type="password" placeholder="Passwort" />
+          <input id="passInp" type="password" class="input" placeholder="Passwort" />
         </label>
       </div>
 
       <div class="row">
-        <button id="loginBtn" class="btn">Login</button>
+        <button id="loginBtn" class="btn">Start</button>
       </div>
 
       <details class="cardlite">
-        <summary>Meine UID (für Admin-Freigabe)</summary>
+        <summary>UID (für Admin/Superadmin)</summary>
         <div class="row">
-          <button id="showUidBtn" class="btn ghost">UID anzeigen</button>
+          <button id="showUidBtn" class="btn ghost">Meine UID anzeigen</button>
           <button id="copyUidBtn" class="btn ghost" disabled>UID kopieren</button>
         </div>
         <div class="muted small">UID: <span id="uidBox">—</span></div>
@@ -62,71 +63,61 @@
       <div id="loginErr" class="error"></div>
 
       <p class="muted small">
-        iPhone/iPad: Safari → Teilen → <b>Zum Home-Bildschirm</b> → dann als App starten.
+        iPhone/iPad: Safari → Teilen → <b>Zum Home-Bildschirm</b> → dann als App öffnen.
       </p>
     </section>
 
     <!-- APP -->
     <section id="appView" class="hidden">
 
-      <!-- Tabs -->
-      <nav class="tabs">
-        <button class="tab" data-tab="tasks">✅ Aufgaben</button>
-        <button class="tab" data-tab="rides">🚗 Fahrten</button>
-        <button class="tab" data-tab="admin">🛠️ Admin</button>
-      </nav>
+      <!-- NAV -->
+      <section class="card tabs">
+        <button class="tabbtn" data-tab="tasksTab">Aufgaben</button>
+        <button class="tabbtn" data-tab="ridesTab">Fahrten</button>
+        <button class="tabbtn" data-tab="adminTab" id="adminTabBtn">Admin</button>
+      </section>
 
-      <!-- TASKS -->
-      <section id="tab_tasks" class="card">
+      <!-- TASKS TAB -->
+      <section id="tasksTab" class="tab card">
         <div class="row between">
-          <h2>Aufgaben</h2>
-          <div class="row">
-            <span class="pill" id="todayBadge">—</span>
-            <input id="tagSearch" class="search" placeholder="Suche Tag_ID" />
-          </div>
+          <h2>Tags</h2>
+          <input id="tagSearch" class="search" placeholder="Suche Tag_ID" />
         </div>
-
-        <div class="cardlite">
-          <div class="row between">
-            <div>
-              <b>Wochenplan</b> (Mo–Sa). Sonntag frei.
-              <div class="muted small">Admin kann Aufgaben pro Wochentag/Tag-ID verwalten.</div>
-            </div>
-            <button id="openTodayExtrasBtn" class="btn ghost">+ Tagesaufgabe</button>
-          </div>
-        </div>
+        <div id="tagList" class="list"></div>
 
         <div class="divider"></div>
 
-        <div id="tagList" class="list"></div>
-
-        <div id="taskPanel" class="cardlite hidden">
-          <div class="row between">
-            <h3 id="openTagTitle">Tag</h3>
-            <button id="closeTagBtn" class="btn ghost">Schließen</button>
-          </div>
-
-          <div class="muted small" id="tagMeta"></div>
-
-          <div class="divider"></div>
-
-          <div class="row between">
-            <div class="muted small">
-              Normal-User: sehen nur offene Aufgaben.  
-              Admin: sieht alles + Endkontrolle + Tools.
-            </div>
-            <button id="newTaskBtn" class="btn ghost">+ Aufgabe (Admin)</button>
-          </div>
-
-          <div id="taskList" class="list"></div>
+        <div class="row between">
+          <h2 id="openTagTitle">Kein Tag geöffnet</h2>
+          <button id="closeTagBtn" class="btn ghost">Schließen</button>
         </div>
+
+        <div id="tagMeta" class="muted small"></div>
+
+        <div class="row between">
+          <div class="muted small">✅ Abhaken = unsichtbar für normale User. Admin sieht alles.</div>
+          <button id="newDailyTaskBtn" class="btn ghost hidden">+ Tagesaufgabe</button>
+        </div>
+
+        <div class="row">
+          <label class="grow">Mitarbeiter auswählen (Mehrfach)
+            <select id="doneBySel" class="select" multiple size="5"></select>
+          </label>
+        </div>
+
+        <div class="row">
+          <button id="markSelectedDoneBtn" class="btn">✅ Ausgewählte Aufgabe erledigen</button>
+          <span class="muted small" id="taskHint"></span>
+        </div>
+
+        <div id="taskList" class="list"></div>
       </section>
 
-      <!-- RIDES -->
-      <section id="tab_rides" class="card hidden">
+      <!-- RIDES TAB -->
+      <section id="ridesTab" class="tab card hidden">
         <div class="row between">
           <h2>Fahrten (letzte 72h)</h2>
-          <span class="pill" id="rideWindow">—</span>
+          <span id="dayKeyBadge" class="pill"></span>
         </div>
 
         <div class="grid2">
@@ -139,7 +130,7 @@
         </div>
 
         <div class="row">
-          <button id="addRideBtn" class="btn">Add Fahrt</button>
+          <button id="addRideBtn" class="btn">Add Fahrt (+1 Fahrtenpunkt)</button>
           <span id="rideInfo" class="muted small"></span>
         </div>
 
@@ -147,73 +138,92 @@
         <div id="ridesList" class="list"></div>
       </section>
 
-      <!-- ADMIN -->
-      <section id="tab_admin" class="card hidden">
+      <!-- ADMIN TAB -->
+      <section id="adminTab" class="tab card hidden">
         <div class="row between">
           <h2>Adminbereich</h2>
-          <div class="row">
-            <span id="adminBadge" class="pill hidden">ADMIN</span>
-            <span id="superBadge" class="pill hidden">SUPERADMIN</span>
-          </div>
+          <span id="adminBadge" class="pill hidden">ADMIN</span>
         </div>
 
         <div id="adminLock" class="muted">Nur Admins.</div>
 
         <div id="adminArea" class="hidden">
 
-          <details class="detailsCard" open>
-            <summary><b>👥 Mitarbeiter</b> (Login-Liste + Passwort Reset)</summary>
+          <section class="cardlite subtabs">
+            <button class="subtabbtn" data-subtab="employeesSub">Mitarbeiter</button>
+            <button class="subtabbtn" data-subtab="tagsSub">Tags</button>
+            <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
+            <button class="subtabbtn" data-subtab="toolsSub">Aufgaben-Tools</button>
+            <button class="subtabbtn" data-subtab="rolesSub">Admins</button>
+            <button class="subtabbtn" data-subtab="settingsSub">Urlaub/Settings</button>
+            <button class="subtabbtn" data-subtab="pointsSub">Punkte</button>
+          </section>
+
+          <!-- EMPLOYEES -->
+          <section id="employeesSub" class="subtab">
+            <h3>Mitarbeiter (Login-Liste)</h3>
             <div class="row">
-              <input id="empAdd" class="input" placeholder="Neuer Name (z.B. Anna)" />
+              <input id="empAdd" class="input" placeholder="Name hinzufügen (z.B. Anna)" />
               <button id="empAddBtn" class="btn ghost">Hinzufügen</button>
             </div>
+            <div class="muted small">Passwort zurücksetzen: “Reset PW” setzt Hash leer → nächster Login setzt neu.</div>
             <div id="empList" class="list"></div>
-          </details>
+          </section>
 
-          <details class="detailsCard">
-            <summary><b>🏷️ Tags</b></summary>
+          <!-- TAGS -->
+          <section id="tagsSub" class="subtab hidden">
+            <h3>Tags verwalten</h3>
             <div class="row">
               <input id="tagAdd" class="input" placeholder="Neue Tag_ID" />
               <button id="tagAddBtn" class="btn ghost">Tag hinzufügen</button>
             </div>
             <div id="adminTagList" class="list"></div>
-          </details>
+          </section>
 
-          <details class="detailsCard">
-            <summary><b>🧰 Aufgaben-Tools</b> (Endkontrolle & Punkte)</summary>
-            <div class="row between">
-              <input id="godSearch" class="search" placeholder="Suche Tag oder Aufgabe" />
-              <div class="row">
-                <button id="toggleOnlyOpenBtn" class="btn ghost">Nur offen</button>
-                <button id="dayChangeBtn" class="btn danger">Tageswechsel (manuell)</button>
-              </div>
-            </div>
-            <div class="muted small" id="godSummary"></div>
-            <div id="godList" class="list"></div>
-          </details>
-
-          <details class="detailsCard">
-            <summary><b>🔕 Urlaub / Benachrichtigungen stumm</b></summary>
+          <!-- PLAN -->
+          <section id="planSub" class="subtab hidden">
+            <h3>Wochenplan (Mo–Sa, Sonntag frei)</h3>
             <div class="grid2">
-              <label>Urlaub bis (Datum)
-                <input id="vacUntil" type="date" class="input"/>
-              </label>
-              <label>Modus
-                <select id="vacMode" class="select">
-                  <option value="off">Aus</option>
-                  <option value="on">Aktiv</option>
+              <label>Wochentag
+                <select id="planWeekdaySel" class="select">
+                  <option value="1">Montag</option>
+                  <option value="2">Dienstag</option>
+                  <option value="3">Mittwoch</option>
+                  <option value="4">Donnerstag</option>
+                  <option value="5">Freitag</option>
+                  <option value="6">Samstag</option>
                 </select>
+              </label>
+              <label>Tag
+                <select id="planTagSel" class="select"></select>
               </label>
             </div>
             <div class="row">
-              <button id="saveVacBtn" class="btn ghost">Speichern</button>
-              <span class="muted small" id="vacInfo"></span>
+              <input id="planTaskInp" class="input" placeholder="Aufgabe für Wochenplan" />
+              <button id="planAddBtn" class="btn ghost">Hinzufügen</button>
             </div>
-          </details>
+            <div class="muted small">Diese Aufgaben werden automatisch jeden Tag um 00:00 in die Tagesliste kopiert (wenn App offen ist) und sonst beim nächsten Öffnen nachgeholt.</div>
+            <div id="planList" class="list"></div>
+          </section>
 
-          <details class="detailsCard">
-            <summary><b>⭐ Admins verwalten</b> (nur Superadmin)</summary>
-            <p class="muted small">Superadmin kann bis zu 3 Superadmins und 8 Admins setzen.</p>
+          <!-- TOOLS -->
+          <section id="toolsSub" class="subtab hidden">
+            <h3>Aufgaben-Tools</h3>
+            <div class="row">
+              <button id="forceDayChangeBtn" class="btn danger">Tageswechsel jetzt ausführen</button>
+              <button id="regenTodayBtn" class="btn ghost">Heute aus Wochenplan neu erzeugen</button>
+            </div>
+            <div class="divider"></div>
+
+            <h4>Endkontrolle</h4>
+            <p class="muted small">Punkte werden erst bei Endkontrolle gebucht. Pro erledigter Aufgabe bekommt jeder ausgewählte Mitarbeiter +1 Aufgabenpunkt.</p>
+            <div id="finalList" class="list"></div>
+          </section>
+
+          <!-- ROLES -->
+          <section id="rolesSub" class="subtab hidden">
+            <h3>Admins verwalten</h3>
+            <p class="muted small">Super-Admin: max 3 Superadmins und 8 Admins.</p>
 
             <div class="row">
               <input id="adminUidAdd" class="input" placeholder="UID für ADMIN (max 8)" />
@@ -226,15 +236,33 @@
               <button id="superUidAddBtn" class="btn ghost">Superadmin hinzufügen</button>
             </div>
             <div id="superUidList" class="list"></div>
-          </details>
+          </section>
 
-          <details class="detailsCard">
-            <summary><b>🏁 Punkte</b> (Aufgabenpunkte + Fahrtenpunkte getrennt)</summary>
-            <div class="row">
-              <button id="refreshPointsBtn" class="btn ghost">Neu berechnen</button>
+          <!-- SETTINGS -->
+          <section id="settingsSub" class="subtab hidden">
+            <h3>Urlaub / Stumm</h3>
+            <p class="muted small">Wenn aktiv, werden Push/Benachrichtigungen im UI stumm (und Hinweise ausgeblendet). (Ohne Server kann der Browser trotzdem systemseitig noch anzeigen.)</p>
+            <div class="grid2">
+              <label>Von (YYYYMMDD)
+                <input id="vacFrom" class="input" placeholder="20260218" />
+              </label>
+              <label>Bis (YYYYMMDD)
+                <input id="vacUntil" class="input" placeholder="20260225" />
+              </label>
             </div>
+            <div class="row">
+              <button id="vacSaveBtn" class="btn ghost">Speichern</button>
+              <button id="vacClearBtn" class="btn danger">Urlaub deaktivieren</button>
+            </div>
+            <div id="vacInfo" class="muted small"></div>
+          </section>
+
+          <!-- POINTS -->
+          <section id="pointsSub" class="subtab hidden">
+            <h3>Punkte</h3>
+            <div class="muted small">Getrennt: Aufgabenpunkte und Fahrtenpunkte.</div>
             <div id="pointsList" class="list"></div>
-          </details>
+          </section>
 
         </div>
       </section>
