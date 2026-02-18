@@ -90,7 +90,6 @@ onAuthStateChanged(auth, async user => {
 });
 
 function initStreams() {
-  // Tags
   onSnapshot(query(collection(db, "tags"), orderBy("tagId")), s => {
     tags = s.docs.map(d => ({id:d.id, ...d.data()}));
     renderTags();
@@ -98,14 +97,12 @@ function initStreams() {
     if ($("adminTagList")) renderAdminTags();
   });
   
-  // Hygiene Kategorien
   onSnapshot(query(collection(db, "hygiene_cats"), orderBy("title")), s => {
     hygieneCats = s.docs.map(d => ({id:d.id, ...d.data()}));
     renderHygieneUserView();
     if (isAdmin) renderHygieneAdmin();
   });
 
-  // Fahrten (72h)
   onSnapshot(query(collection(db, "rides"), orderBy("createdAt", "desc"), limit(50)), s => {
     const cutoff = Date.now() - (72*60*60*1000);
     $("ridesList").innerHTML = s.docs.filter(d=>d.data().createdMs > cutoff).map(d=>`
@@ -113,7 +110,6 @@ function initStreams() {
     `).join("");
   });
   
-  // Punkte
   onSnapshot(collection(db, "points_tasks"), s => $("pointsList").innerHTML = s.docs.map(d=>`<div class="item"><b>${d.id}</b>: ${d.data().points} Pkt</div>`).join(""));
 }
 
@@ -126,14 +122,12 @@ function renderTags() {
 }
 window.openTag = (key, id) => {
   currentTagKey = key; $("openTagTitle").textContent = `Tag: ${id}`;
-  // Nur 'daily' Aufgaben anzeigen, keine Hygiene
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("tagKey", "==", key), where("type", "==", "task")), s => {
     $("taskList").innerHTML = s.docs.map(d=> renderTaskItem(d)).join("");
   });
 };
 function renderTaskItem(d) {
   const t = d.data();
-  // User sieht nur offene, Admin sieht alle
   if (!isAdmin && t.status !== "open") return "";
   return `<div class="item ${t.status==='done'?'done':''}">
     <div class="main"><b>${t.status==='open'?'⏳':'✅'} ${esc(t.text)}</b><div class="small muted">${t.doneBy.join(", ")}</div></div>
@@ -160,31 +154,23 @@ function renderHygieneUserView() {
   const container = $("hygieneUserList");
   if (!container) return;
   container.innerHTML = "";
-  
   hygieneCats.forEach(cat => {
     const div = document.createElement("div");
     div.innerHTML = `<h3 style="margin-top:15px; border-bottom:1px solid #333">${esc(cat.title)}</h3><div id="hyg_list_${cat.id}" class="list">Lade...</div>`;
     container.appendChild(div);
-    
-    // Aufgaben für diese Kategorie laden
     onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("catId", "==", cat.id), where("type", "==", "hygiene")), s => {
       const listDiv = document.getElementById(`hyg_list_${cat.id}`);
-      if(s.empty) { listDiv.innerHTML = `<div class="muted small">Alles erledigt oder nichts geplant.</div>`; return; }
-      
+      if(s.empty) { listDiv.innerHTML = `<div class="muted small">Alles erledigt.</div>`; return; }
       listDiv.innerHTML = s.docs.map(d => {
         const t = d.data();
-        if (t.status !== "open" && !isAdmin) return ""; // Erledigte ausblenden
-        return `<div class="item">
-          <span>${esc(t.text)}</span>
-          <button class="btn ghost" onclick="finishHygiene('${d.id}')">Abhaken</button>
-        </div>`;
+        if (t.status !== "open" && !isAdmin) return "";
+        return `<div class="item"><span>${esc(t.text)}</span><button class="btn ghost" onclick="finishHygiene('${d.id}')">Abhaken</button></div>`;
       }).join("");
     });
   });
 }
 window.finishHygiene = async (id) => {
   if(!confirm("Erledigt?")) return;
-  // Hygiene wird von 'jemandem' erledigt, nehmen wir an User ist eingeloggt
   await updateDoc(doc(db, "daily_tasks", id), { status: "done", doneBy: [meName], doneAt: stamp() });
 };
 
@@ -201,22 +187,17 @@ $("addRideBtn").onclick = async () => {
 
 /* --- 7. ADMIN FUNCTIONS --- */
 function initAdminLogic() {
-  // Endkontrolle: Aufgaben UND Hygiene
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("status", "==", "done")), s => {
     $("finalList").innerHTML = s.docs.map(d => {
       const t = d.data();
       const isHygiene = t.type === "hygiene";
       return `<div class="item" style="border-left: 3px solid ${isHygiene?'orange':'green'}">
-        <div>
-          <b>${isHygiene ? '🧹 ' : '✅ '}${esc(t.text)}</b><br>
-          <small class="muted">${t.doneBy.join(", ")} ${isHygiene ? '(Keine Punkte)' : '(+1 Pkt)'}</small>
-        </div>
+        <div><b>${isHygiene ? '🧹 ' : '✅ '}${esc(t.text)}</b><br><small class="muted">${t.doneBy.join(", ")}</small></div>
         <button class="btn ghost" onclick="finalCheck('${d.id}', '${t.type}')">OK</button>
       </div>`;
     }).join("");
   });
   
-  // Hygiene Vorlagen laden
   onSnapshot(collection(db, "hygiene_templates"), s => {
     $("hygieneTemplateList").innerHTML = s.docs.map(d => `<div class="item"><span>${esc(d.data().text)} (${d.data().catTitle})</span><button class="btn danger" onclick="delHygTpl('${d.id}')">X</button></div>`).join("");
   });
@@ -226,8 +207,6 @@ window.finalCheck = async (id, type) => {
   const dRef = doc(db, "daily_tasks", id);
   const snap = await getDoc(dRef);
   await updateDoc(dRef, { status: "final", finalBy: meName });
-  
-  // Punkte NUR wenn KEIN Hygiene
   if (type !== "hygiene") {
     for (const name of snap.data().doneBy) {
       const pRef = doc(db, "points_tasks", keyOfName(name));
@@ -237,30 +216,22 @@ window.finalCheck = async (id, type) => {
   }
 };
 
-/* Admin: Wochenplan (ALLE TAGE FILTER) */
+/* Admin: Wochenplan */
 const refreshWeekly = () => {
-  const wdVal = $("planWeekdaySel").value; // "all" oder "1".."7"
+  const wdVal = $("planWeekdaySel").value; 
   const tagKey = $("planTagSel").value;
-  
   let q;
   if (wdVal === "all") {
-    // Zeige alle, sortiert nach Wochentag
-    q = query(collection(db, "weekly_tasks"), orderBy("weekday"));
-    if (tagKey) q = query(collection(db, "weekly_tasks"), where("tagKey", "==", tagKey), orderBy("weekday"));
+    q = tagKey ? query(collection(db, "weekly_tasks"), where("tagKey", "==", tagKey), orderBy("weekday")) : query(collection(db, "weekly_tasks"), orderBy("weekday"));
   } else {
     const wd = Number(wdVal);
-    q = query(collection(db, "weekly_tasks"), where("weekday", "==", wd));
-    if (tagKey) q = query(collection(db, "weekly_tasks"), where("weekday", "==", wd), where("tagKey", "==", tagKey));
+    q = tagKey ? query(collection(db, "weekly_tasks"), where("weekday", "==", wd), where("tagKey", "==", tagKey)) : query(collection(db, "weekly_tasks"), where("weekday", "==", wd));
   }
-  
   onSnapshot(q, s => {
     const days = ["", "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
     $("planList").innerHTML = s.docs.map(d => {
       const w = d.data();
-      return `<div class="item">
-        <span><b>${days[w.weekday]}:</b> ${esc(w.text)} <small>(${w.tagKey})</small></span>
-        <button class="btn danger" onclick="deleteWeekly('${d.id}')">🗑️</button>
-      </div>`;
+      return `<div class="item"><span><b>${days[w.weekday]}:</b> ${esc(w.text)} <small>(${w.tagKey})</small></span><button class="btn danger" onclick="deleteWeekly('${d.id}')">🗑️</button></div>`;
     }).join("");
   });
 };
@@ -268,27 +239,20 @@ $("planWeekdaySel").onchange = refreshWeekly; $("planTagSel").onchange = refresh
 window.deleteWeekly = async (id) => deleteDoc(doc(db, "weekly_tasks", id));
 
 $("planAddBtn").onclick = async () => {
-  const txt = n($("planTaskInp").value);
-  const wd = $("planWeekdaySel").value;
-  const tag = $("planTagSel").value;
-  if (!txt || wd === "all" || !tag) return alert("Bitte konkreten Tag und Bereich wählen.");
+  const txt = n($("planTaskInp").value), wd = $("planWeekdaySel").value, tag = $("planTagSel").value;
+  if (!txt || wd === "all" || !tag) return alert("Wähle konkreten Tag & Bereich.");
   await addDoc(collection(db, "weekly_tasks"), { text: txt, tagKey: tag, weekday: Number(wd), active: true });
   $("planTaskInp").value = "";
 };
 
-/* Admin: Hygiene Setup */
-$("hygieneCatAddBtn").onclick = async () => {
-  const t = n($("hygieneCatInp").value);
-  if (t) await addDoc(collection(db, "hygiene_cats"), { title: t });
-  $("hygieneCatInp").value = "";
-};
+/* Admin: Hygiene */
+$("hygieneCatAddBtn").onclick = async () => { const t = n($("hygieneCatInp").value); if(t) await addDoc(collection(db, "hygiene_cats"), { title: t }); $("hygieneCatInp").value = ""; };
 function renderHygieneAdmin() {
   $("hygieneCatList").innerHTML = hygieneCats.map(c => `<div class="item"><span>${esc(c.title)}</span><button class="btn danger" onclick="delHygCat('${c.id}')">X</button></div>`).join("");
   $("hygieneItemCatSel").innerHTML = hygieneCats.map(c => `<option value="${c.id}">${esc(c.title)}</option>`).join("");
 }
 $("hygieneItemAddBtn").onclick = async () => {
-  const txt = n($("hygieneItemInp").value);
-  const catId = $("hygieneItemCatSel").value;
+  const txt = n($("hygieneItemInp").value), catId = $("hygieneItemCatSel").value;
   if(!txt || !catId) return;
   const catTitle = hygieneCats.find(c=>c.id===catId)?.title || "";
   await addDoc(collection(db, "hygiene_templates"), { text: txt, catId, catTitle });
@@ -297,27 +261,50 @@ $("hygieneItemAddBtn").onclick = async () => {
 window.delHygCat = (id) => deleteDoc(doc(db, "hygiene_cats", id));
 window.delHygTpl = (id) => deleteDoc(doc(db, "hygiene_templates", id));
 
-/* --- 8. DAY CHANGE ENGINE --- */
+/* --- 8. DAY CHANGE / TEST GENERATOR --- */
 async function runDayChange() {
   const today = dayKeyNow();
   const mSnap = await getDoc(doc(db, "meta", "day_state"));
   if (mSnap.exists() && mSnap.data().lastDayKey === today) return;
-  
-  // 1. Wochenaufgaben kopieren
-  const wSnap = await getDocs(query(collection(db, "weekly_tasks"), where("weekday", "==", getWeekday()), where("active", "==", true)));
-  const batch = writeBatch(db);
-  wSnap.forEach(d => batch.set(doc(collection(db, "daily_tasks")), { ...d.data(), dateKey: today, status: "open", doneBy: [], type: "task", createdAt: serverTimestamp() }));
-  
-  // 2. Hygiene Vorlagen kopieren
-  const hSnap = await getDocs(collection(db, "hygiene_templates"));
-  hSnap.forEach(d => batch.set(doc(collection(db, "daily_tasks")), { ...d.data(), dateKey: today, status: "open", doneBy: [], type: "hygiene", createdAt: serverTimestamp() }));
+  // Automatisch nur feuern, wenn Meta nicht passt (Mitternacht)
+  await generateTasksForToday(today);
+  await setDoc(doc(db, "meta", "day_state"), { lastDayKey: today }, { merge: true });
+}
 
-  batch.set(doc(db, "meta", "day_state"), { lastDayKey: today }, { merge: true });
+// Zentrale Funktion für Generierung (Genutzt von Auto-Wechsel UND Test-Button)
+async function generateTasksForToday(dateKey) {
+  const batch = writeBatch(db);
+  const wd = new Date().getDay() || 7; // 1=Mo, 7=So
+  
+  // 1. Wochenplan für HEUTE holen
+  const wSnap = await getDocs(query(collection(db, "weekly_tasks"), where("weekday", "==", wd), where("active", "==", true)));
+  wSnap.forEach(d => {
+    batch.set(doc(collection(db, "daily_tasks")), { ...d.data(), dateKey, status: "open", doneBy: [], type: "task", createdAt: serverTimestamp() });
+  });
+  
+  // 2. Hygiene Vorlagen holen (Jeden Tag gleich)
+  const hSnap = await getDocs(collection(db, "hygiene_templates"));
+  hSnap.forEach(d => {
+    batch.set(doc(collection(db, "daily_tasks")), { ...d.data(), dateKey, status: "open", doneBy: [], type: "hygiene", createdAt: serverTimestamp() });
+  });
+  
   await batch.commit();
 }
-if($("forceDayChangeBtn")) $("forceDayChangeBtn").onclick = async () => {
-  await setDoc(doc(db, "meta", "day_state"), { lastDayKey: "RESET" }); // Reset meta
-  location.reload(); // Trigger runDayChange on reload
+
+// TEST BUTTON ACTION
+if($("regenTestBtn")) $("regenTestBtn").onclick = async () => {
+  if(!confirm("Achtung: Löscht alle heutigen Aufgaben und generiert sie neu!")) return;
+  const today = dayKeyNow();
+  
+  // Erst löschen...
+  const exist = await getDocs(query(collection(db, "daily_tasks"), where("dateKey", "==", today)));
+  const batch = writeBatch(db);
+  exist.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+  
+  // ...dann neu machen
+  await generateTasksForToday(today);
+  alert("Neu generiert!");
 };
 
 /* --- 9. HELPERS --- */
