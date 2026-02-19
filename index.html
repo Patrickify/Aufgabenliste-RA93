@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b0f14" />
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="stylesheet" href="./styles.css" />
-  <title>RA 93 Pro</title>
+  <title>RA 93 Pro - Komplettversion</title>
 </head>
 <body>
 
@@ -66,7 +66,7 @@
         <div class="divider"></div>
         <h2 id="openTagTitle">Bereich wählen</h2>
         <div class="cardlite" style="margin-bottom:10px">
-          <p class="small muted">Wer hat die Aufgabe erledigt?</p>
+          <p class="small muted">Wer hat die Aufgabe erledigt? (Mehrfachwahl)</p>
           <div id="doneByCheckBoxes" class="grid2" style="max-height:150px; overflow-y:auto; border:1px solid #333; padding:10px; border-radius:8px;"></div>
         </div>
         <p id="taskHint" class="small muted" style="color:var(--accent)"></p>
@@ -94,7 +94,7 @@
           <button class="subtabbtn active" data-subtab="toolsSub">Endkontrolle</button>
           <button class="subtabbtn" data-subtab="statsSub">Punkte</button>
           <button class="subtabbtn" data-subtab="hygieneAdminSub">GD-Setup</button>
-          <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
+          <button class="subtabbtn" data-subtab="planSub">Plan</button>
           <button class="subtabbtn" data-subtab="employeesSub">Rollen</button>
         </section>
 
@@ -116,15 +116,13 @@
         </section>
 
         <section id="hygieneAdminSub" class="subtab hidden">
-          <h4>GD Kategorien</h4>
-          <div class="row"><input id="hygieneCatInp" class="input"/><button id="hygieneCatAddBtn" class="btn ghost">+</button></div>
+          <div class="row"><input id="hygieneCatInp" class="input" placeholder="Kat"/><button id="hygieneCatAddBtn" class="btn ghost">+</button></div>
           <div id="hygieneCatList" class="list"></div>
           <div class="divider"></div>
-          <h4>Neue Vorlage</h4>
           <select id="hygieneItemCatSel" class="select"></select>
           <input id="hygieneItemInp" class="input" placeholder="Titel"/>
-          <textarea id="hygieneSubtasksInp" class="input" placeholder="Unterpunkte (einer pro Zeile)"></textarea>
-          <button id="hygieneItemAddBtn" class="btn grow">Speichern</button>
+          <textarea id="hygieneSubtasksInp" class="input" placeholder="Checkliste: Pro Zeile ein Punkt"></textarea>
+          <button id="hygieneItemAddBtn" class="btn grow">Vorlage speichern</button>
         </section>
 
         <section id="planSub" class="subtab hidden">
@@ -132,14 +130,15 @@
             <select id="planDaySel" class="select"><option value="1">Mo</option><option value="2">Di</option><option value="3">Mi</option><option value="4">Do</option><option value="5">Fr</option><option value="6">Sa</option><option value="7">So</option></select>
             <select id="planTagSel" class="select"></select>
           </div>
-          <input id="planTextInp" class="input" placeholder="Aufgabentext" />
+          <input id="planTextInp" class="input" placeholder="Aufgabe" />
           <button id="planAddBtn" class="btn grow">Wochenplan +</button>
-          <div id="planList" class="list" style="margin-top:10px"></div>
+          <div id="planList" class="list"></div>
         </section>
 
         <section id="employeesSub" class="subtab hidden">
-          <h4>Superadmin ernennen</h4>
-          <div class="row"><input id="superUidAdd" class="input" /><button id="superUidAddBtn" class="btn ghost">+</button></div>
+          <h4>Rollenvergabe</h4>
+          <div class="row"><input id="superUidAdd" class="input" placeholder="Name" /><button id="superUidAddBtn" class="btn ghost">S-Admin +</button></div>
+          <div class="row" style="margin-top:5px"><input id="adminUidAdd" class="input" placeholder="Name" /><button id="adminUidAddBtn" class="btn ghost">Admin +</button></div>
           <div class="divider"></div>
           <h4>Mitarbeiter</h4>
           <div class="row"><input id="empAdd" class="input" /><button id="empAddBtn" class="btn ghost">+</button></div>
