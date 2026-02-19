@@ -30,7 +30,7 @@ function dayKeyNow() { const d = new Date(); return `${d.getFullYear()}${String(
 function monthKey() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
 function stamp() { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
-/* --- 1. LOGIN & AUTH --- */
+/* --- 1. LOGIN & ROLLEN --- */
 signInAnonymously(auth);
 onAuthStateChanged(auth, async user => {
   if (user && meKey) {
@@ -39,7 +39,7 @@ onAuthStateChanged(auth, async user => {
     const [sSnap, aSnap] = await Promise.all([getDoc(doc(db, "superadmins_by_name", meKey)), getDoc(doc(db, "admins_by_name", meKey))]);
     isSuperAdmin = sSnap.exists() && sSnap.data()?.enabled === true;
     isAdmin = isSuperAdmin || (aSnap.exists() && aSnap.data()?.enabled === true);
-    $("whoami").textContent = `${meName}${isSuperAdmin ? " (Super)" : isAdmin ? " (Admin)" : ""}`;
+    $("whoami").textContent = `${meName}${isSuperAdmin ? " (S)" : isAdmin ? " (A)" : ""}`;
     show($("adminTabBtn"), isAdmin); show($("loginView"), false); show($("appView"), true);
     initStreams();
     if (isAdmin) { initAdminLogic(); runDayChange(); initPushSystem(); }
@@ -48,13 +48,13 @@ onAuthStateChanged(auth, async user => {
 
 if ($("loginBtn")) $("loginBtn").onclick = async () => {
   const name = n($("nameSel").value), pass = n($("passInp").value);
-  if (!name || !pass) return alert("Fehlende Daten");
+  if (!name || !pass) return alert("Daten fehlen");
   const key = keyOfName(name);
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${key}:${pass}`)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
   const eSnap = await getDoc(doc(db, "employees", key));
   if (!eSnap.exists()) return alert("User unbekannt");
   if (!eSnap.data().passHash) await updateDoc(doc(db, "employees", key), { passHash: hash });
-  else if (eSnap.data().passHash !== hash) return alert("Falsch");
+  else if (eSnap.data().passHash !== hash) return alert("Passwort falsch");
   localStorage.setItem("meName", name); localStorage.setItem("meKey", key); location.reload();
 };
 
@@ -66,16 +66,19 @@ function initStreams() {
     $("nameSel").innerHTML = opts; $("rideNameSel").innerHTML = opts;
     if ($("doneByCheckBoxes")) {
       $("doneByCheckBoxes").innerHTML = employees.map(e => `
-        <label style="display:flex; align-items:center; gap:8px; padding:5px; background:#1a1f26; border-radius:4px;">
-          <input type="checkbox" name="worker" value="${esc(e.name)}"> <span class="small">${esc(e.name)}</span>
+        <label style="display:flex; align-items:center; gap:12px; padding:10px; background:#1a1f26; border-radius:6px; width:100%;">
+          <input type="checkbox" name="worker" value="${esc(e.name)}" style="width:20px; height:20px;"> 
+          <span style="font-size:1.1rem">${esc(e.name)}</span>
         </label>`).join("");
     }
+    if (isAdmin) $("empList").innerHTML = employees.map(e => `<div class="item"><span>${esc(e.name)}</span><button class="btn danger" onclick="window.delDoc('employees','${keyOfName(e.name)}')">X</button></div>`).join("");
   });
 
   onSnapshot(query(collection(db, "tags"), orderBy("tagId")), s => {
     tags = s.docs.map(d => ({id:d.id, ...d.data()}));
     renderTagList();
     if($("planTagSel")) $("planTagSel").innerHTML = tags.map(t=>`<option value="${t.tagKey}">${t.tagId}</option>`).join("");
+    if($("adminTagList")) $("adminTagList").innerHTML = tags.map(t=>`<div class="item"><span>${t.tagId}</span><button class="btn danger" onclick="window.delDoc('tags','${t.id}')">X</button></div>`).join("");
   });
 
   onSnapshot(query(collection(db, "rides"), orderBy("createdAt", "desc"), limit(50)), s => {
@@ -95,7 +98,7 @@ function initStreams() {
   });
 }
 
-/* --- 3. FAHRTEN & PUNKTE (MIT ABZUG) --- */
+/* --- 3. LOGIK: FAHRTEN & PUNKTE --- */
 $("addRideBtn").onclick = async () => {
   const name = $("rideNameSel").value, einsatz = $("rideEinsatz").value;
   if(!name || !einsatz) return;
@@ -110,7 +113,7 @@ window.delRide = async (id, userKey) => {
   await setDoc(doc(db, "points_rides", userKey), { points: increment(-1) }, { merge: true });
 };
 
-/* --- 4. AUFGABEN & CHECKLISTEN --- */
+/* --- 4. LOGIK: AUFGABEN & CHECKLISTEN --- */
 function renderTagList() {
   const q = n($("tagSearch").value).toLowerCase();
   $("tagList").innerHTML = tags.filter(t=>t.tagId.toLowerCase().includes(q)).map(t=>`<div class="item"><span>🏷️ ${t.tagId}</span><button class="btn ghost" onclick="window.openTag('${t.tagKey}','${t.tagId}')">Öffnen</button></div>`).join("");
@@ -119,10 +122,7 @@ function renderTagList() {
 window.openTag = (key, id) => {
   currentTagKey = key; $("openTagTitle").textContent = `Tag: ${id}`;
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("tagKey", "==", key)), s => {
-    $("taskList").innerHTML = s.docs.map(d => {
-      const t = d.data(); if(t.status !== "open" && !isAdmin) return "";
-      return `<div class="item"><span>${t.status==='open'?'⏳':'✅'} ${esc(t.text)}</span><button class="btn ghost" onclick="window.selectTask('${d.id}', '${esc(t.text)}')">Wählen</button></div>`;
-    }).join("");
+    $("taskList").innerHTML = s.docs.map(d => d.data().status === 'open' ? `<div class="item"><span>${esc(d.data().text)}</span><button class="btn ghost" onclick="window.selectTask('${d.id}', '${esc(d.data().text)}')">Wählen</button></div>` : "").join("");
   });
 };
 
@@ -130,7 +130,7 @@ window.selectTask = (id, text) => { selectedTaskId = id; $("taskHint").textConte
 
 $("markSelectedDoneBtn").onclick = async () => {
   const who = Array.from(document.querySelectorAll('input[name="worker"]:checked')).map(cb => cb.value);
-  if(!selectedTaskId || who.length === 0) return alert("Aufgabe & Personen wählen!");
+  if(!selectedTaskId || who.length === 0) return alert("Wähle Aufgabe & Team!");
   await updateDoc(doc(db, "daily_tasks", selectedTaskId), { status: "done", doneBy: who, doneAt: stamp() });
   selectedTaskId = ""; $("taskHint").textContent = "";
   document.querySelectorAll('input[name="worker"]').forEach(cb => cb.checked = false);
@@ -139,19 +139,17 @@ $("markSelectedDoneBtn").onclick = async () => {
 window.openHygCheck = async (id) => {
   activeCheckTaskId = id; const snap = await getDoc(doc(db, "daily_tasks", id)); const data = snap.data();
   $("modalTitle").textContent = data.text; const cont = $("modalSubtasks"); cont.innerHTML = "";
-  if (!data.subtasks || data.subtasks.length === 0) { 
-    if(confirm("Direkt abschließen?")) { await updateDoc(doc(db, "daily_tasks", id), { status: "done", doneBy: [meName], doneAt: stamp() }); } 
-    return; 
-  }
+  if (!data.subtasks || data.subtasks.length === 0) { if(confirm("Abschließen?")) finishHyg(id); return; }
   data.subtasks.forEach(sub => cont.innerHTML += `<label class="item"><input type="checkbox" class="sub-check"> <span>${esc(sub)}</span></label>`);
   show($("checkModal"), true);
 };
 
+async function finishHyg(id) { await updateDoc(doc(db, "daily_tasks", id), { status: "done", doneBy: [meName], doneAt: stamp() }); }
+
 $("saveCheckBtn").onclick = async () => {
   if (Array.from(document.querySelectorAll(".sub-check")).every(c => c.checked)) {
-    await updateDoc(doc(db, "daily_tasks", activeCheckTaskId), { status: "done", doneBy: [meName], doneAt: stamp() });
-    show($("checkModal"), false);
-  } else alert("Bitte alles abhaken!");
+    await finishHyg(activeCheckTaskId); show($("checkModal"), false);
+  } else alert("Bitte alle Punkte abhaken!");
 };
 
 function renderHygieneUserView() {
@@ -159,10 +157,7 @@ function renderHygieneUserView() {
   hygieneCats.forEach(cat => {
     cont.innerHTML += `<h3>${esc(cat.title)}</h3><div id="hlist_${cat.id}" class="list"></div>`;
     onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("catId", "==", cat.id)), snap => {
-      $(`hlist_${cat.id}`).innerHTML = snap.docs.map(d => {
-        if(d.data().status !== "open" && !isAdmin) return "";
-        return `<div class="item"><span>${esc(d.data().text)}</span><button class="btn ghost" onclick="window.openHygCheck('${d.id}')">Checkliste</button></div>`;
-      }).join("");
+      $(`hlist_${cat.id}`).innerHTML = snap.docs.map(d => d.data().status === 'open' ? `<div class="item"><span>${esc(d.data().text)}</span><button class="btn ghost" onclick="window.openHygCheck('${d.id}')">Check</button></div>` : "").join("");
     });
   });
 }
@@ -194,28 +189,35 @@ function renderPointsTable(sTasks, sRides) {
   const stats = {};
   sTasks.forEach(d => { stats[d.id] = { t: d.data().points || 0, r: 0 }; });
   sRides.forEach(d => { if(!stats[d.id]) stats[d.id] = { t: 0, r: 0 }; stats[d.id].r = d.data().points || 0; });
-  if($("pointsTableBody")) $("pointsTableBody").innerHTML = Object.keys(stats).map(k => `<tr><td>${k}</td><td>${stats[k].t}</td><td>${stats[k].r}</td><td>${stats[k].t + stats[k].r}</td></tr>`).join("");
+  $("pointsTableBody").innerHTML = Object.keys(stats).map(k => `<tr><td>${k}</td><td>${stats[k].t}</td><td>${stats[k].r}</td><td>${stats[k].t + stats[k].r}</td></tr>`).join("");
 }
 
-/* --- 6. SETUP & GENERATOR --- */
+/* --- 6. SETUP: TAGS, GD, ROLLEN --- */
+$("tagAddBtn").onclick = async () => {
+  const v = n($("tagAddInp").value); if(!v || !isAdmin) return;
+  await setDoc(doc(db, "tags", keyOfName(v)), { tagId: v, tagKey: keyOfName(v) });
+  $("tagAddInp").value = "";
+};
+
+$("hygieneCatAddBtn").onclick = async () => { if($("hygieneCatInp").value) await addDoc(collection(db, "hygiene_cats"), { title: $("hygieneCatInp").value }); $("hygieneCatInp").value=""; };
+
 $("hygieneItemAddBtn").onclick = async () => {
   const subs = $("hygieneSubtasksInp").value.split('\n').filter(l => l.trim() !== "");
   await addDoc(collection(db, "hygiene_templates"), { catId: $("hygieneItemCatSel").value, text: $("hygieneItemInp").value, subtasks: subs, type: "hygiene" });
-  $("hygieneItemInp").value = ""; $("hygieneSubtasksInp").value = ""; alert("Gespeichert!");
+  $("hygieneItemInp").value=""; $("hygieneSubtasksInp").value=""; alert("Gespeichert");
 };
 
 $("planAddBtn").onclick = async () => {
   await addDoc(collection(db, "weekly_tasks"), { weekday: Number($("planDaySel").value), tagKey: $("planTagSel").value, text: $("planTextInp").value, type: "task" });
-  $("planTextInp").value = ""; alert("Geplant!");
+  $("planTextInp").value = "";
 };
 
+$("superUidAddBtn").onclick = async () => { if(!isSuperAdmin) return alert("Nur Superadmin!"); await setDoc(doc(db, "superadmins_by_name", keyOfName($("superUidAdd").value)), { enabled: true }); $("superUidAdd").value = ""; };
+$("adminUidAddBtn").onclick = async () => { if(!isAdmin) return alert("Kein Adminzugriff"); await setDoc(doc(db, "admins_by_name", keyOfName($("adminUidAdd").value)), { enabled: true }); $("adminUidAdd").value = ""; };
+$("empAddBtn").onclick = async () => { await setDoc(doc(db, "employees", keyOfName($("empAdd").value)), { name: $("empAdd").value, passHash: "" }); $("empAdd").value=""; };
 window.delDoc = async (col, id) => { if(confirm("Löschen?")) await deleteDoc(doc(db, col, id)); };
 
-$("superUidAddBtn").onclick = async () => { if(!isSuperAdmin) return alert("Nur Superadmins!"); await setDoc(doc(db, "superadmins_by_name", keyOfName($("superUidAdd").value)), { enabled: true }); $("superUidAdd").value = ""; alert("OK"); };
-$("adminUidAddBtn").onclick = async () => { if(!isAdmin) return alert("Nur Admins!"); await setDoc(doc(db, "admins_by_name", keyOfName($("adminUidAdd").value)), { enabled: true }); $("adminUidAdd").value = ""; alert("OK"); };
-$("hygieneCatAddBtn").onclick = async () => { if($("hygieneCatInp").value) await addDoc(collection(db, "hygiene_cats"), { title: $("hygieneCatInp").value }); $("hygieneCatInp").value=""; };
-$("empAddBtn").onclick = async () => { if($("empAdd").value) await setDoc(doc(db, "employees", keyOfName($("empAdd").value)), { name: $("empAdd").value, passHash: "" }); $("empAdd").value=""; };
-
+/* --- 7. AUTOMATISIERUNG --- */
 async function runDayChange() {
   const today = dayKeyNow(); const mS = await getDoc(doc(db, "meta", "day_state"));
   if (mS.exists() && mS.data().lastDayKey === today) return;
@@ -230,7 +232,7 @@ async function runDayChange() {
 
 $("regenTestBtn").onclick = async () => { if(confirm("Tag Reset?")) { const ex = await getDocs(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()))); const b = writeBatch(db); ex.forEach(d => b.delete(d.ref)); await b.commit(); location.reload(); } };
 
-/* --- 7. UI & TAB LOGIC (FIXED) --- */
+/* --- 8. UI & TAB LOGIC --- */
 function setupTabs(btnClass, tabClass) {
   document.querySelectorAll(btnClass).forEach(btn => {
     btn.onclick = () => {
@@ -241,24 +243,20 @@ function setupTabs(btnClass, tabClass) {
     };
   });
 }
-setupTabs(".tabbtn", ".tab");
-setupTabs(".subtabbtn", ".subtab");
+setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
 
 function initPushSystem() {
   $("settingsBtn").onclick = () => show($("settingsCard"), true);
   $("closeSettingsBtn").onclick = () => show($("settingsCard"), false);
-  $("reqPermBtn").onclick = () => Notification.requestPermission();
-  $("saveMuteBtn").onclick = async () => { const v = $("muteUntilInp").value; await updateDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: v }); myMuteUntil = v; updateMuteStatus(); };
-  $("clearMuteBtn").onclick = async () => { await updateDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: "" }); myMuteUntil = ""; updateMuteStatus(); };
+  $("saveMuteBtn").onclick = async () => { const v = $("muteUntilInp").value; await updateDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: v }); myMuteUntil = v; };
   setInterval(() => {
     if (myMuteUntil && Number(myMuteUntil) >= Number(dayKeyNow())) return;
     const h = new Date().getHours();
     if ([9, 12, 14, 16, 18].includes(h) && new Date().getMinutes() === 0) {
-      if(Notification.permission === "granted") new Notification("RA 93: Aufgaben offen!");
+      if(Notification.permission === "granted") new Notification("Check RA 93!");
     }
   }, 60000);
 }
-function updateMuteStatus() { if($("muteStatus")) $("muteStatus").textContent = (myMuteUntil && Number(myMuteUntil) >= Number(dayKeyNow())) ? "🔕 Stumm bis " + myMuteUntil : "🔔 Aktiv"; }
 
 $("logoutBtn").onclick = () => { localStorage.clear(); signOut(auth).then(()=>location.reload()); };
 $("reloadBtn").onclick = () => location.reload();
