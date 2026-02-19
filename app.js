@@ -46,15 +46,37 @@ onAuthStateChanged(auth, async user => {
   } else { show($("loginView"), true); show($("appView"), false); }
 });
 
+/* --- WIEDERHERGESTELLTE PASSWORT-LOGIK --- */
 if($("loginBtn")) $("loginBtn").onclick = async () => {
   const inputName = n($("nameInp").value);
-  if (!inputName) return alert("Name eingeben!");
+  const pass = n($("passInp").value);
+  if (!inputName || !pass) return alert("Bitte Name und Passwort eingeben!");
+  
   const testKey = keyOfName(inputName);
+  
+  // Passwort verschlüsseln (Hashing)
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${testKey}:${pass}`))
+    .then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2,"0")).join(""));
+  
   const empSnap = await getDoc(doc(db, "employees", testKey));
-  if (empSnap.exists()) {
-    localStorage.setItem("meName", empSnap.data().name); localStorage.setItem("meKey", testKey); location.reload();
-  } else { alert("Name nicht registriert!"); }
+  if (!empSnap.exists()) return alert("Name ist nicht im System registriert!");
+  
+  const empData = empSnap.data();
+  
+  // Wenn der Mitarbeiter noch kein Passwort hat, speichern wir das aktuelle
+  if (!empData.passHash) {
+    await updateDoc(doc(db, "employees", testKey), { passHash: hash });
+  } 
+  // Ansonsten prüfen wir, ob das eingegebene Passwort mit dem Hash übereinstimmt
+  else if (empData.passHash !== hash) {
+    return alert("Passwort falsch!");
+  }
+  
+  localStorage.setItem("meName", empData.name); 
+  localStorage.setItem("meKey", testKey); 
+  location.reload();
 };
+/* ----------------------------------------- */
 
 function initAppDataStreams() {
   onSnapshot(query(collection(db, "employees"), orderBy("name")), s => {
@@ -114,7 +136,6 @@ function initAdminLogic() {
   if($("planDaySel")) $("planDaySel").onchange = updatePlanFilter;
   if($("planTagSel")) $("planTagSel").onchange = updatePlanFilter; updatePlanFilter();
 
-  // ENDKONTROLLE (Split Tasks & Hygiene)
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("status", "==", "done")), s => {
     const tH = [], hH = [];
     s.docs.forEach(d => {
@@ -139,12 +160,11 @@ async function runDayChange() {
   await batch.set(doc(db, "meta", "day_state"), { lastDayKey: today }, { merge: true }); await batch.commit();
 }
 
-// FIX: TAG RESET LÖSCHT UND ERSTELLT NEU
 if($("regenTestBtn")) $("regenTestBtn").onclick = async () => { 
   if(confirm("Reset? Daten für heute werden neu aus dem Wochenplan geladen.")) { 
     const ex = await getDocs(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()))); 
     const b = writeBatch(db); ex.forEach(d => b.delete(d.ref)); await b.commit(); 
-    await setDoc(doc(db, "meta", "day_state"), { lastDayKey: "" }, { merge: true }); // Zwingt zum erneuten Generieren
+    await setDoc(doc(db, "meta", "day_state"), { lastDayKey: "" }, { merge: true }); 
     await runDayChange();
     alert("Reset erfolgreich! Aufgaben wurden neu geladen.");
     location.reload(); 
