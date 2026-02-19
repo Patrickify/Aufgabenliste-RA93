@@ -157,3 +157,33 @@ input:focus, select:focus { border-color: var(--accent); }
 table { width: 100%; border-collapse: collapse; margin-top: 10px; }
 th { text-align: left; padding: 10px; color: var(--muted); border-bottom: 2px solid var(--line); font-size: 0.9rem; }
 td { padding: 12px 10px; border-bottom: 1px solid var(--line); }
+
+/* =============================
+   TICKETS & DASHBOARD
+   ============================= */
+.ticket-card {
+  border-left: 4px solid var(--accent);
+}
+.ticket-card.closed {
+  border-left-color: var(--muted);
+  opacity: 0.7;
+}
+.ticket-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 10px;
+}
+.ticket-title { font-weight: bold; font-size: 1.1rem; color: white; }
+.ticket-badge { 
+  font-size: 0.75rem; padding: 3px 8px; border-radius: 12px; background: rgba(255,255,255,0.1); 
+}
+.ticket-history {
+  background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; margin-top: 10px;
+  max-height: 150px; overflow-y: auto; font-size: 0.9rem;
+}
+.history-item { border-bottom: 1px solid var(--line); padding-bottom: 5px; margin-bottom: 5px; }
+.history-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.info-board-msg {
+  background: rgba(37, 99, 235, 0.1); border: 1px solid var(--accent);
+  padding: 12px; border-radius: 10px; margin-bottom: 10px;
+}
+
