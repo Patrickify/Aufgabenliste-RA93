@@ -3,21 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0f14" />
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="manifest" href="./manifest.json" />
   <link rel="stylesheet" href="./styles.css" />
-  <link rel="icon" href="./icon-192.png">
-  <title>Aufgabenliste RA 93</title>
+  <title>RA 93 Pro</title>
 </head>
 <body>
 
   <header class="topbar">
-    <div class="brand">Aufgaben RA 93</div>
+    <div class="brand">RA 93 Pro</div>
     <div class="right">
       <span id="whoami" class="who">—</span>
-      <button id="settingsBtn" class="btn ghost" style="font-size:1.2rem">⚙️</button>
+      <button id="settingsBtn" class="btn ghost">⚙️</button>
       <button id="reloadBtn" class="btn ghost">↻</button>
       <button id="logoutBtn" class="btn ghost">Logout</button>
     </div>
@@ -38,7 +33,7 @@
     <section id="loginView" class="card">
       <h2>Anmeldung</h2>
       <div class="grid">
-        <label>Mitarbeiter <select id="nameSel" class="select"></select></label>
+        <label>Name <select id="nameSel" class="select"></select></label>
         <label>Passwort <input id="passInp" type="password" class="input" /></label>
       </div>
       <button id="loginBtn" class="btn grow" style="margin-top:15px">Starten</button>
@@ -46,16 +41,13 @@
 
     <section id="appView" class="hidden">
       
-      <section id="settingsCard" class="card hidden shadow" style="border:1px solid var(--accent); margin-bottom: 20px;">
+      <section id="settingsCard" class="card hidden shadow">
         <div class="row between"><h3>Settings</h3><button id="closeSettingsBtn" class="btn ghost">X</button></div>
-        <button id="reqPermBtn" class="btn grow">🔔 Push-Meldungen aktivieren</button>
+        <button id="reqPermBtn" class="btn grow">🔔 Push aktivieren</button>
         <div class="divider"></div>
         <h4>🌴 Urlaubsmodus</h4>
-        <input id="muteUntilInp" class="input" type="number" placeholder="Datum YYYYMMDD" />
-        <div class="row">
-          <button id="saveMuteBtn" class="btn ghost">Speichern</button>
-          <button id="clearMuteBtn" class="btn danger">Urlaub beenden</button>
-        </div>
+        <input id="muteUntilInp" class="input" type="number" placeholder="z.B. 20260228" />
+        <div class="row"><button id="saveMuteBtn" class="btn ghost">Speichern</button><button id="clearMuteBtn" class="btn danger">Beenden</button></div>
         <div id="muteStatus" class="small" style="color:orange; margin-top:5px"></div>
       </section>
 
@@ -63,15 +55,16 @@
         <button class="tabbtn active" data-tab="tasksTab">Aufgaben</button>
         <button class="tabbtn" data-tab="hygieneTab">Grunddesinfektion</button>
         <button class="tabbtn" data-tab="ridesTab">Fahrten</button>
-        <button class="tabbtn" data-tab="adminTab" id="adminTabBtn">Admin</button>
+        <button class="tabbtn" data-tab="adminTab" id="adminTabBtn" class="hidden">Admin</button>
       </section>
 
       <section id="tasksTab" class="tab card">
-        <input id="tagSearch" class="search" placeholder="Bereich suchen..." />
+        <input id="tagSearch" class="search" placeholder="Suche Bereich..." />
         <div id="tagList" class="list"></div>
         <div class="divider"></div>
         <h2 id="openTagTitle">Bereich wählen</h2>
         <div class="row"><select id="doneBySel" class="select" multiple size="3"></select></div>
+        <p id="taskHint" class="small muted"></p>
         <button id="markSelectedDoneBtn" class="btn grow" style="margin-top:10px">✅ Erledigen</button>
         <div id="taskList" class="list"></div>
       </section>
@@ -87,42 +80,67 @@
           <label>Fahrer <select id="rideNameSel" class="select"></select></label>
           <label>Einsatz <input id="rideEinsatz" class="input" type="number" /></label>
         </div>
-        <button id="addRideBtn" class="btn grow">Speichern</button>
+        <button id="addRideBtn" class="btn grow">Speichern (+1 Pkt)</button>
         <div id="ridesList" class="list" style="margin-top:15px"></div>
       </section>
 
       <section id="adminTab" class="tab card hidden">
         <section class="cardlite subtabs">
-          <button class="subtabbtn active" data-subtab="toolsSub">Endkontrolle</button>
+          <button class="subtabbtn active" data-subtab="toolsSub">Kontrolle</button>
+          <button class="subtabbtn" data-subtab="statsSub">Punkte</button>
           <button class="subtabbtn" data-subtab="hygieneAdminSub">GD-Setup</button>
-          <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
-          <button class="subtabbtn" data-subtab="employeesSub">User/Rollen</button>
+          <button class="subtabbtn" data-subtab="planSub">Plan</button>
+          <button class="subtabbtn" data-subtab="employeesSub">Rollen</button>
         </section>
 
         <section id="toolsSub" class="subtab">
-          <h4 style="color:var(--accent)">📋 Aufgaben Check</h4>
+          <h4>📋 Aufgaben zur Abnahme</h4>
           <div id="finalListTasks" class="list"></div>
           <div class="divider"></div>
-          <h4 style="color:orange">🧹 Grunddesinfektion Check</h4>
+          <h4>🧹 GD-Kontrolle</h4>
           <div id="finalListHygiene" class="list"></div>
-          <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:20px">🛠️ Tag neu generieren (Reset)</button>
+          <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:20px">🛠️ Tag Reset</button>
         </section>
 
-        <section id="employeesSub" class="subtab hidden">
-          <h4>Superadmins ernennen</h4>
-          <div class="row">
-            <input id="superUidAdd" class="input" placeholder="Name" />
-            <button id="superUidAddBtn" class="btn ghost">+</button>
-          </div>
-          <div id="superList" class="list"></div>
-          <div class="divider"></div>
-          <h4>Mitarbeiter & Tags</h4>
-          <div class="row"><input id="empAdd" class="input" /><button id="empAddBtn" class="btn ghost">+</button></div>
-          <div id="empList" class="list"></div>
+        <section id="statsSub" class="subtab hidden">
+          <h3>Punkteübersicht</h3>
+          <table style="width: 100%;">
+            <thead><tr><th>Name</th><th>Aufg.</th><th>Fahrt</th><th>∑</th></tr></thead>
+            <tbody id="pointsTableBody"></tbody>
+          </table>
         </section>
 
         <section id="hygieneAdminSub" class="subtab hidden">
-           </section>
+          <h4>Kategorien</h4>
+          <div class="row"><input id="hygieneCatInp" class="input"/><button id="hygieneCatAddBtn" class="btn ghost">+</button></div>
+          <div id="hygieneCatList" class="list"></div>
+          <div class="divider"></div>
+          <h4>Neue Vorlage</h4>
+          <select id="hygieneItemCatSel" class="select"></select>
+          <input id="hygieneItemInp" class="input" placeholder="Aufgabentitel"/>
+          <textarea id="hygieneSubtasksInp" class="input" placeholder="Unterpunkte (einer pro Zeile)"></textarea>
+          <button id="hygieneItemAddBtn" class="btn grow">Vorlage speichern</button>
+          <div id="hygieneTemplateList" class="list"></div>
+        </section>
+
+        <section id="planSub" class="subtab hidden">
+          <div class="grid2">
+            <select id="planDaySel" class="select"><option value="1">Mo</option><option value="2">Di</option><option value="3">Mi</option><option value="4">Do</option><option value="5">Fr</option><option value="6">Sa</option><option value="7">So</option></select>
+            <select id="planTagSel" class="select"></select>
+          </div>
+          <input id="planTextInp" class="input" placeholder="Aufgabentext" />
+          <button id="planAddBtn" class="btn grow">Hinzufügen</button>
+          <div id="planList" class="list"></div>
+        </section>
+
+        <section id="employeesSub" class="subtab hidden">
+          <h4>Superadmin ernennen</h4>
+          <div class="row"><input id="superUidAdd" class="input" /><button id="superUidAddBtn" class="btn ghost">+</button></div>
+          <div class="divider"></div>
+          <h4>Mitarbeiter hinzufügen</h4>
+          <div class="row"><input id="empAdd" class="input" /><button id="empAddBtn" class="btn ghost">+</button></div>
+          <div id="empList" class="list"></div>
+        </section>
       </section>
     </section>
   </main>
