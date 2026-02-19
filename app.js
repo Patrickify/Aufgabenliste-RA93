@@ -15,7 +15,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
-/* --- GLOBALE VARIABLEN --- */
 let meName = localStorage.getItem("meName") || "", meKey = localStorage.getItem("meKey") || "";
 let isAdmin = false, isSuperAdmin = false;
 let tags = [], employees = [], hygieneCats = [];
@@ -29,43 +28,53 @@ function keyOfName(name) { return n(name).toLowerCase().replace(/[ä]/g, "ae").r
 function dayKeyNow() { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; }
 function stamp() { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
-/* --- 1. INITIALISIERUNG & LOGIN (FIX) --- */
+/* --- 1. INITIALISIERUNG & SIDEBAR --- */
 signInAnonymously(auth);
 
-function initLoginDropdown() {
-  onSnapshot(query(collection(db, "employees"), orderBy("name")), s => {
-    employees = s.docs.map(d => d.data());
-    const opts = `<option value="">Wer bist du?</option>` + employees.map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join("");
-    if($("nameSel")) $("nameSel").innerHTML = opts;
-    if($("rideNameSel")) $("rideNameSel").innerHTML = opts;
-    if($("doneByCheckBoxes")) $("doneByCheckBoxes").innerHTML = employees.map(e => `<label style="display:flex; align-items:center; gap:12px; padding:10px; background:#1a1f26; border-radius:6px; margin-bottom:5px; width:100%;"><input type="checkbox" name="worker" value="${esc(e.name)}" style="width:20px; height:20px;"> <span>${esc(e.name)}</span></label>`).join("");
-  });
+// Sidebar ein-/ausklappen
+if($("menuToggle")) {
+  $("menuToggle").onclick = () => $("sidebar").classList.toggle("open");
 }
-initLoginDropdown();
 
 onAuthStateChanged(auth, async user => {
   if (user && meKey) {
     const uRef = doc(db, "users", user.uid);
     await setDoc(uRef, { name: meName, nameKey: meKey }, { merge: true });
-    const [sSnap, aSnap] = await Promise.all([getDoc(doc(db, "superadmins_by_name", meKey)), getDoc(doc(db, "admins_by_name", meKey))]);
+    const [sSnap, aSnap] = await Promise.all([
+      getDoc(doc(db, "superadmins_by_name", meKey)),
+      getDoc(doc(db, "admins_by_name", meKey))
+    ]);
     isSuperAdmin = sSnap.exists() && sSnap.data()?.enabled === true;
     isAdmin = isSuperAdmin || (aSnap.exists() && aSnap.data()?.enabled === true);
-    $("whoami").textContent = `${meName}${isSuperAdmin ? " (S)" : isAdmin ? " (A)" : ""}`;
+    $("whoami").textContent = `${meName}${isAdmin ? " (A)" : ""}`;
     show($("adminTabBtn"), isAdmin); show($("loginView"), false); show($("appView"), true);
     initAppDataStreams();
     if (isAdmin) { initAdminLogic(); runDayChange(); }
   } else { show($("loginView"), true); show($("appView"), false); }
 });
 
+// Login Prüfung gegen DB
 $("loginBtn").onclick = async () => {
-  const name = $("nameSel").value;
-  if(!name) return alert("Name wählen!");
-  localStorage.setItem("meName", name); localStorage.setItem("meKey", keyOfName(name));
-  location.reload();
+  const inputName = n($("nameInp").value);
+  if (!inputName) return alert("Namen eingeben!");
+  const testKey = keyOfName(inputName);
+  const empSnap = await getDoc(doc(db, "employees", testKey));
+  if (empSnap.exists()) {
+    localStorage.setItem("meName", empSnap.data().name);
+    localStorage.setItem("meKey", testKey);
+    location.reload();
+  } else { alert("Nicht in Mitarbeiterliste!"); }
 };
 
 /* --- 2. DATA STREAMS --- */
 function initAppDataStreams() {
+  onSnapshot(query(collection(db, "employees"), orderBy("name")), s => {
+    employees = s.docs.map(d => d.data());
+    if($("doneByCheckBoxes")) $("doneByCheckBoxes").innerHTML = employees.map(e => `
+        <label class="check-item"><input type="checkbox" name="worker" value="${esc(e.name)}"> <span>${esc(e.name)}</span></label>`).join("");
+    if($("rideNameSel")) $("rideNameSel").innerHTML = employees.map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join("");
+  });
+
   onSnapshot(query(collection(db, "tags"), orderBy("tagId")), s => {
     tags = s.docs.map(d => ({id:d.id, ...d.data()}));
     renderTagList();
@@ -84,18 +93,25 @@ function initAppDataStreams() {
   });
 }
 
-/* --- 3. AUFGABEN-LOGIK (TAG-FILTER & AUSWAHL) --- */
+/* --- 3. AUFGABEN-LOGIK (FIXED) --- */
 function renderTagList() {
   const q = n($("tagSearch").value).toLowerCase();
-  $("tagList").innerHTML = tags.filter(t=>t.tagId.toLowerCase().includes(q)).map(t=>`<div class="item"><span>🏷️ ${esc(t.tagId)}</span><button class="btn ghost" onclick="window.openTag('${t.tagKey}','${esc(t.tagId)}')">Öffnen</button></div>`).join("");
+  $("tagList").innerHTML = tags.filter(t=>t.tagId.toLowerCase().includes(q)).map(t=>`
+    <div class="item">
+      <span>🏷️ ${esc(t.tagId)}</span>
+      <button class="btn ghost" onclick="window.openTag('${t.tagKey}','${esc(t.tagId)}')">Öffnen</button>
+    </div>`).join("");
 }
 
 window.openTag = (key, id) => {
-  currentTagKey = key; $("openTagTitle").textContent = `Bereich: ${id}`;
+  currentTagKey = key; 
+  $("openTagTitle").textContent = `Bereich: ${id}`;
+  // Snapshot für HEUTE und diesen TAG
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("tagKey", "==", key)), s => {
-    const list = $("taskList");
+    const l = $("taskList");
     const openTasks = s.docs.filter(d => d.data().status === "open");
-    list.innerHTML = openTasks.length === 0 ? '<p class="muted">Keine Aufgaben.</p>' : openTasks.map(d => `<div class="item"><span>${esc(d.data().text)}</span><button class="btn ghost" onclick="window.selectTask('${d.id}', '${esc(d.data().text)}')">Wählen</button></div>`).join("");
+    l.innerHTML = openTasks.length === 0 ? '<p class="muted">Keine Aufgaben für heute.</p>' : 
+      openTasks.map(d => `<div class="item"><span>${esc(d.data().text)}</span><button class="btn ghost" onclick="window.selectTask('${d.id}', '${esc(d.data().text)}')">Wählen</button></div>`).join("");
   });
 };
 
@@ -103,18 +119,38 @@ window.selectTask = (id, text) => { selectedTaskId = id; $("taskHint").textConte
 
 $("markSelectedDoneBtn").onclick = async () => {
   const who = Array.from(document.querySelectorAll('input[name="worker"]:checked')).map(cb => cb.value);
-  if(!selectedTaskId || who.length === 0) return alert("Aufgabe & Helfer wählen!");
+  if(!selectedTaskId || who.length === 0) return alert("Wähle Aufgabe & Personen!");
   await updateDoc(doc(db, "daily_tasks", selectedTaskId), { status: "done", doneBy: who, doneAt: stamp() });
   selectedTaskId = ""; $("taskHint").textContent = "";
   document.querySelectorAll('input[name="worker"]').forEach(cb => cb.checked = false);
 };
 
-/* --- 4. HYGIENE & MODAL --- */
+/* --- 4. ADMIN & WOCHENPLAN --- */
+function initAdminLogic() {
+  const updatePlanFilter = () => {
+    const filterDay = Number($("planDaySel").value);
+    const filterTag = $("planTagSel").value;
+    onSnapshot(query(collection(db, "weekly_tasks"), where("weekday", "==", filterDay), where("tagKey", "==", filterTag)), s => {
+      if($("planList")) $("planList").innerHTML = s.docs.map(d => `<div class="item"><span>${esc(d.data().text)}</span><button class="btn danger" onclick="window.delDoc('weekly_tasks','${d.id}')">X</button></div>`).join("");
+    });
+  };
+  if($("planDaySel")) $("planDaySel").onchange = updatePlanFilter;
+  if($("planTagSel")) $("planTagSel").onchange = updatePlanFilter;
+
+  onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("status", "==", "done")), s => {
+    $("finalListTasks").innerHTML = s.docs.map(d => `<div class="item"><span>${esc(d.data().text)} (${d.data().doneBy.join(",")})</span><div class="row"><button class="btn danger" onclick="window.rejectTask('${d.id}')">❌</button><button class="btn ghost" onclick="window.finalCheck('${d.id}')">OK</button></div></div>`).join("");
+  });
+}
+
+/* --- 5. HYGIENE & MODAL --- */
 window.openHygCheck = async (id) => {
   activeCheckTaskId = id; const snap = await getDoc(doc(db, "daily_tasks", id)); const data = snap.data();
   $("modalTitle").textContent = data.text; const cont = $("modalSubtasks"); cont.innerHTML = "";
-  if (!data.subtasks || data.subtasks.length === 0) { if(confirm("Abschließen?")) { await updateDoc(doc(db, "daily_tasks", id), { status: "done", doneBy: [meName], doneAt: stamp() }); } return; }
-  data.subtasks.forEach(sub => cont.innerHTML += `<label class="item"><input type="checkbox" class="sub-check"> <span>${esc(sub)}</span></label>`);
+  if (!data.subtasks || data.subtasks.length === 0) { 
+    if(confirm("Abschließen?")) { await updateDoc(doc(db, "daily_tasks", id), { status: "done", doneBy: [meName], doneAt: stamp() }); } 
+    return; 
+  }
+  data.subtasks.forEach(sub => cont.innerHTML += `<label class="check-item"><input type="checkbox" class="sub-check"> <span>${esc(sub)}</span></label>`);
   show($("checkModal"), true);
 };
 
@@ -122,7 +158,7 @@ $("saveCheckBtn").onclick = async () => {
   if (Array.from(document.querySelectorAll(".sub-check")).every(c => c.checked)) {
     await updateDoc(doc(db, "daily_tasks", activeCheckTaskId), { status: "done", doneBy: [meName], doneAt: stamp() });
     show($("checkModal"), false);
-  } else alert("Bitte alles abhaken!");
+  } else alert("Hake alles ab!");
 };
 
 function renderHygieneUserView() {
@@ -135,59 +171,7 @@ function renderHygieneUserView() {
   });
 }
 
-/* --- 5. ADMIN LOGIK (WOCHENPLAN FILTER & ABNAHME) --- */
-function initAdminLogic() {
-  const updatePlanFilter = () => {
-    const filterDay = Number($("planDaySel").value);
-    const filterTag = $("planTagSel").value;
-    onSnapshot(query(collection(db, "weekly_tasks"), where("weekday", "==", filterDay), where("tagKey", "==", filterTag)), s => {
-      if($("planList")) $("planList").innerHTML = s.docs.map(d => `<div class="item"><span>${esc(d.data().text)}</span><button class="btn danger" onclick="window.delDoc('weekly_tasks','${d.id}')">X</button></div>`).join("");
-    });
-  };
-  if($("planDaySel")) $("planDaySel").onchange = updatePlanFilter;
-  if($("planTagSel")) $("planTagSel").onchange = updatePlanFilter;
-  updatePlanFilter();
-
-  onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("status", "==", "done")), s => {
-    $("finalListTasks").innerHTML = s.docs.map(d => `<div class="item"><span>${esc(d.data().text)} (${d.data().doneBy.join(",")})</span><div class="row"><button class="btn danger" onclick="window.rejectTask('${d.id}')">❌</button><button class="btn ghost" onclick="window.finalCheck('${d.id}')">OK</button></div></div>`).join("");
-  });
-
-  onSnapshot(collection(db, "points_tasks"), st => { onSnapshot(collection(db, "points_rides"), sr => renderPointsTable(st, sr)); });
-}
-
-window.finalCheck = async (id) => {
-  const dRef = doc(db, "daily_tasks", id); const snap = await getDoc(dRef); const data = snap.data();
-  if (data.type !== "hygiene") { 
-    for (const name of data.doneBy) { await setDoc(doc(db, "points_tasks", keyOfName(name)), { points: increment(1) }, { merge: true }); } 
-  }
-  await deleteDoc(dRef);
-};
-
-window.rejectTask = async (id) => { await updateDoc(doc(db, "daily_tasks", id), { status: "open", doneBy: [] }); };
-
-/* --- 6. FAHRTENBUCH & PUNKTE --- */
-$("saveRideBtn").onclick = async () => {
-  const name = $("rideNameSel").value, einsatz = $("rideEinsatzInp").value;
-  if(!name || !einsatz) return alert("Name & Einsatz angeben!");
-  await addDoc(collection(db, "rides"), { name, einsatz, createdAt: serverTimestamp() });
-  await setDoc(doc(db, "points_rides", keyOfName(name)), { points: increment(1) }, { merge: true });
-  $("rideEinsatzInp").value = ""; alert("Fahrt gespeichert!");
-};
-
-window.delRide = async (id, userKey) => {
-  if(!confirm("Punkt wird abgezogen! Löschen?")) return;
-  await deleteDoc(doc(db, "rides", id));
-  await setDoc(doc(db, "points_rides", userKey), { points: increment(-1) }, { merge: true });
-};
-
-function renderPointsTable(sTasks, sRides) {
-  const stats = {};
-  sTasks.forEach(d => { stats[d.id] = { t: d.data().points || 0, r: 0 }; });
-  sRides.forEach(d => { if(!stats[d.id]) stats[d.id] = { t: 0, r: 0 }; stats[d.id].r = d.data().points || 0; });
-  if($("pointsTableBody")) $("pointsTableBody").innerHTML = Object.keys(stats).map(k => `<tr><td>${k}</td><td>${stats[k].t}</td><td>${stats[k].r}</td><td><b>${stats[k].t + stats[k].r}</b></td></tr>`).join("");
-}
-
-/* --- 7. AUTOMATISIERUNG & TABS --- */
+/* --- 6. AUTOMATIK --- */
 async function runDayChange() {
   const today = dayKeyNow(); const mS = await getDoc(doc(db, "meta", "day_state"));
   if (mS.exists() && mS.data().lastDayKey === today) return;
@@ -198,6 +182,7 @@ async function runDayChange() {
   await batch.commit();
 }
 
+/* --- 7. TABS LOGIK --- */
 function setupTabs(btnClass, tabClass) {
   document.querySelectorAll(btnClass).forEach(btn => {
     btn.onclick = () => {
@@ -205,6 +190,8 @@ function setupTabs(btnClass, tabClass) {
       show($(btn.dataset.tab || btn.dataset.subtab), true);
       document.querySelectorAll(btnClass).forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
+      // Sidebar auf Mobilgeräten nach Klick schließen
+      if(window.innerWidth < 768) $("sidebar").classList.remove("open");
     };
   });
 }
@@ -212,15 +199,14 @@ setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
 
 /* --- HELPERS --- */
 window.delDoc = async (col, id) => { if(confirm("Löschen?")) await deleteDoc(doc(db, col, id)); };
+window.finalCheck = async (id) => {
+  const dRef = doc(db, "daily_tasks", id); const snap = await getDoc(dRef);
+  if(snap.exists() && snap.data().doneBy) {
+    for (const name of snap.data().doneBy) { await setDoc(doc(db, "points_tasks", keyOfName(name)), { points: increment(1) }, { merge: true }); }
+  }
+  await deleteDoc(dRef);
+};
 $("logoutBtn").onclick = () => { localStorage.clear(); location.reload(); };
 $("reloadBtn").onclick = () => location.reload();
 if($("tagSearch")) $("tagSearch").oninput = renderTagList;
 $("closeModalBtn").onclick = () => show($("checkModal"), false);
-
-// Zusatzaufgabe für heute hinzufügen
-if($("addExtraTaskBtn")) $("addExtraTaskBtn").onclick = async () => {
-  const text = n($("extraTaskInp").value); const tagKey = $("extraTaskTagSel").value;
-  if(!text || !tagKey) return;
-  await addDoc(collection(db, "daily_tasks"), { text, tagKey, dateKey: dayKeyNow(), status: "open", type: "task", doneBy: [] });
-  $("extraTaskInp").value = ""; alert("Hinzugefügt!");
-};
