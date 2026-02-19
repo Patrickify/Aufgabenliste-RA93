@@ -30,9 +30,9 @@ function dayKeyNow() { const d = new Date(); return `${d.getFullYear()}${String(
 function monthKey() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
 function stamp() { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
-/* --- 1. LOGIN & AUTH (STARTET SOFORT) --- */
+/* --- 1. INITIALISIERUNG & LOGIN --- */
 signInAnonymously(auth);
-initStreams(); // Lädt Namen sofort für das Login-Dropdown
+initStreams(); // Namen sofort laden für Dropdown
 
 onAuthStateChanged(auth, async user => {
   if (user && meKey) {
@@ -46,6 +46,7 @@ onAuthStateChanged(auth, async user => {
     if(uSnap.exists()) myMuteUntil = uSnap.data().muteUntil || "";
     isSuperAdmin = sSnap.exists() && sSnap.data()?.enabled === true;
     isAdmin = isSuperAdmin || (aSnap.exists() && aSnap.data()?.enabled === true);
+
     $("whoami").textContent = `${meName}${isSuperAdmin ? " (S)" : isAdmin ? " (A)" : ""}`;
     show($("adminTabBtn"), isAdmin); show($("loginView"), false); show($("appView"), true);
     if (isAdmin) { initAdminLogic(); runDayChange(); initPushSystem(); }
@@ -64,12 +65,13 @@ if ($("loginBtn")) $("loginBtn").onclick = async () => {
   localStorage.setItem("meName", name); localStorage.setItem("meKey", key); location.reload();
 };
 
-/* --- 2. DATA STREAMS (LIVE-UPDATES) --- */
+/* --- 2. DATA STREAMS --- */
 function initStreams() {
   onSnapshot(query(collection(db, "employees"), orderBy("name")), s => {
     employees = s.docs.map(d => d.data());
     const opts = `<option value="">Wer bist du?</option>` + employees.map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join("");
-    if($("nameSel")) $("nameSel").innerHTML = opts; if($("rideNameSel")) $("rideNameSel").innerHTML = opts;
+    if($("nameSel")) $("nameSel").innerHTML = opts; 
+    if($("rideNameSel")) $("rideNameSel").innerHTML = opts;
     if ($("doneByCheckBoxes")) {
       $("doneByCheckBoxes").innerHTML = employees.map(e => `<label style="display:flex; align-items:center; gap:12px; padding:12px; background:#1a1f26; border-radius:8px; width:100%;"><input type="checkbox" name="worker" value="${esc(e.name)}" style="width:22px; height:22px;"> <span style="font-size:1.1rem">${esc(e.name)}</span></label>`).join("");
     }
@@ -151,7 +153,7 @@ function renderHygieneUserView() {
 /* --- 5. ADMIN LOGIK & WOCHENPLAN --- */
 function initAdminLogic() {
   onSnapshot(query(collection(db, "weekly_tasks"), orderBy("weekday")), s => {
-    const days = ["", "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+    const days = ["", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
     if($("planList")) $("planList").innerHTML = s.docs.map(d => `<div class="item"><span><b>${days[d.data().weekday]}</b>: ${esc(d.data().text)}</span><button class="btn danger" onclick="window.delDoc('weekly_tasks','${d.id}')">X</button></div>`).join("");
   });
 
@@ -173,7 +175,7 @@ window.finalCheck = async (id) => {
   await deleteDoc(dRef);
 };
 
-window.rejectTask = async (id) => { if(confirm("Zurückweisen?")) await updateDoc(doc(db, "daily_tasks", id), { status: "open", doneBy: [] }); };
+window.rejectTask = async (id) => { if(confirm("Wieder öffnen?")) await updateDoc(doc(db, "daily_tasks", id), { status: "open", doneBy: [] }); };
 
 /* --- 6. SETUP-BUTTONS (ADMIN) --- */
 if($("planAddBtn")) $("planAddBtn").onclick = async () => {
@@ -207,9 +209,9 @@ $("empAddBtn").onclick = async () => { await setDoc(doc(db, "employees", keyOfNa
 $("hygieneCatAddBtn").onclick = async () => { if($("hygieneCatInp").value) await addDoc(collection(db, "hygiene_cats"), { title: $("hygieneCatInp").value }); $("hygieneCatInp").value=""; };
 window.delDoc = async (col, id) => { if(confirm("Löschen?")) await deleteDoc(doc(db, col, id)); };
 
-/* --- 7. PUNKTE & TABELLEN --- */
+/* --- 7. PUNKTE & TABS --- */
 window.delRide = async (id, userKey) => {
-  if(!confirm("Löschen? Punkt wird abgezogen!")) return;
+  if(!confirm("Punkt wird abgezogen! Löschen?")) return;
   await deleteDoc(doc(db, "rides", id));
   await setDoc(doc(db, "points_rides", userKey), { points: increment(-1) }, { merge: true });
 };
@@ -221,20 +223,6 @@ function renderPointsTable(sTasks, sRides) {
   if($("pointsTableBody")) $("pointsTableBody").innerHTML = Object.keys(stats).map(k => `<tr><td align="left">${k}</td><td align="center">${stats[k].t}</td><td align="center">${stats[k].r}</td><td align="right"><b>${stats[k].t + stats[k].r}</b></td></tr>`).join("");
 }
 
-/* --- 8. AUTOMATISIERUNG --- */
-async function runDayChange() {
-  const today = dayKeyNow(); const mS = await getDoc(doc(db, "meta", "day_state"));
-  if (mS.exists() && mS.data().lastDayKey === today) return;
-  const batch = writeBatch(db); const wd = new Date().getDay() || 7;
-  const wSnap = await getDocs(query(collection(db, "weekly_tasks"), where("weekday", "==", wd)));
-  wSnap.forEach(d => batch.set(doc(collection(db, "daily_tasks")), { ...d.data(), dateKey: today, status: "open", doneBy: [] }));
-  const hSnap = await getDocs(collection(db, "hygiene_templates"));
-  hSnap.forEach(d => batch.set(doc(collection(db, "daily_tasks")), { ...d.data(), dateKey: today, status: "open", doneBy: [] }));
-  await batch.set(doc(db, "meta", "day_state"), { lastDayKey: today }, { merge: true });
-  await batch.commit();
-}
-
-/* --- 9. UI & TABS --- */
 function setupTabs(btnClass, tabClass) {
   document.querySelectorAll(btnClass).forEach(btn => {
     btn.onclick = () => {
@@ -246,6 +234,19 @@ function setupTabs(btnClass, tabClass) {
   });
 }
 setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
+
+/* --- 8. AUTOMATIK --- */
+async function runDayChange() {
+  const today = dayKeyNow(); const mS = await getDoc(doc(db, "meta", "day_state"));
+  if (mS.exists() && mS.data().lastDayKey === today) return;
+  const batch = writeBatch(db); const wd = new Date().getDay() || 7;
+  const wSnap = await getDocs(query(collection(db, "weekly_tasks"), where("weekday", "==", wd)));
+  wSnap.forEach(d => batch.set(doc(collection(db, "daily_tasks")), { ...d.data(), dateKey: today, status: "open", doneBy: [] }));
+  const hSnap = await getDocs(collection(db, "hygiene_templates"));
+  hSnap.forEach(d => batch.set(doc(collection(db, "daily_tasks")), { ...d.data(), dateKey: today, status: "open", doneBy: [] }));
+  await batch.set(doc(db, "meta", "day_state"), { lastDayKey: today }, { merge: true });
+  await batch.commit();
+}
 
 function initPushSystem() {
   $("settingsBtn").onclick = () => show($("settingsCard"), true);
