@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import { initializeFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, orderBy, limit, serverTimestamp, writeBatch, increment } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-// NEU: Messaging Import für echte Pushes
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging.js";
 
 const firebaseConfig = {
@@ -16,7 +15,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
-const messaging = getMessaging(app); // Push Initialisierung
+const messaging = getMessaging(app); 
 
 let meName = localStorage.getItem("meName") || "", meKey = localStorage.getItem("meKey") || "";
 let isAdmin = false, isSuperAdmin = false, isDienststellenleitung = false, isEhrenamtlich = false, isZivildiener = false, myMuteUntil = "";
@@ -285,13 +284,16 @@ function initPushSystem() {
   if($("settingsBtn")) $("settingsBtn").onclick = () => show($("settingsCard"), true);
   if($("closeSettingsBtn")) $("closeSettingsBtn").onclick = () => show($("settingsCard"), false);
   
-  // ECHTE PUSH SETUP (VAPID)
+  // WICHTIG: Hier übergeben wir deinen eigenen sw.js an Firebase!
   if($("reqPushBtn")) $("reqPushBtn").onclick = async () => {
     try {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
-        // HIER DEINEN VAPID KEY AUS SCHRITT 1 EINTRAGEN!
-        const token = await getToken(messaging, { vapidKey: "DEIN_VAPID_KEY_HIER_EINTRAGEN" });
+        const registration = await navigator.serviceWorker.register('./sw.js');
+        const token = await getToken(messaging, { 
+          vapidKey: "BE2JnFYdioGgbjzv4AlRn0lUnVYiKy3M_J_qCZqptWPYfM5nTphxm7krdETf2CeV-_CoS24UZiD8FNylYJgeDeI",
+          serviceWorkerRegistration: registration 
+        });
         if (token && auth.currentUser) {
           await setDoc(doc(db, "users", auth.currentUser.uid), { fcmToken: token }, { merge: true });
           alert("Echte Push-Benachrichtigungen aktiviert!");
@@ -300,7 +302,6 @@ function initPushSystem() {
     } catch (err) { console.error(err); alert("Fehler bei der Push-Aktivierung. Siehe Konsole."); }
   };
 
-  // Empfang von Push, wenn die App IM VORDERGRUND offen ist
   onMessage(messaging, (payload) => {
     triggerPush(payload.notification.title, payload.notification.body);
   });
@@ -308,7 +309,6 @@ function initPushSystem() {
   if($("saveMuteBtn")) $("saveMuteBtn").onclick = async () => { const v = $("muteUntilInp").value; if(v && auth.currentUser) { await setDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: v }, { merge: true }); alert("Urlaub gespeichert!"); } };
   if($("clearMuteBtn")) $("clearMuteBtn").onclick = async () => { if(auth.currentUser) { await setDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: "" }, { merge: true }); alert("Urlaub beendet!"); } };
   
-  // Lokaler Fallback-Timer (Nur solange App offen/Tab aktiv ist)
   setInterval(() => {
     if (myMuteUntil && Number(myMuteUntil) >= Number(dayKeyNow())) return;
     if ([9, 12, 14, 16, 18].includes(new Date().getHours()) && new Date().getMinutes() === 0) triggerPush("RA 93 Pro", "Schau nach, ob Aufgaben offen sind!");
