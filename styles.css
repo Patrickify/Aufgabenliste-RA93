@@ -1,5 +1,4 @@
 :root {
-  /* Farben */
   --bg: #0b0f14;
   --card: #111827;
   --muted: #9ca3af;
@@ -7,11 +6,8 @@
   --line: #1f2937;
   --accent: #2563eb;
   --danger: #ef4444;
-  
-  /* Layout */
   --sidebar-width: 260px;
   
-  /* Safe Area Variablen für sauberes Padding auf iPhones */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
@@ -20,7 +16,6 @@
 
 * { box-sizing: border-box; }
 
-/* WICHTIG FÜR IPHONE: Verhindert das Wackeln des gesamten Screens */
 html, body {
   height: 100%;
   overflow: hidden;
@@ -32,16 +27,13 @@ body {
   margin: 0;
   display: flex;
   flex-direction: column;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
 }
 
-/* =============================
-   HEADER / TOPBAR
-   ============================= */
 .topbar {
   height: 60px;
   min-height: 60px;
@@ -58,16 +50,13 @@ body {
 .top-left { display: flex; align-items: center; gap: 15px; }
 .top-right { display: flex; gap: 10px; align-items: center; }
 
-.brand { font-weight: 700; font-size: 1.1rem; white-space: nowrap; }
-.who { color: var(--muted); font-size: 0.8rem; text-align: right; line-height: 1.2; }
+.brand { font-weight: 700; font-size: 1.1rem; }
+.who { color: var(--muted); font-size: 0.8rem; text-align: right; }
 
-/* =============================
-   LAYOUT STRUKTUR (SIDEBAR & CONTENT)
-   ============================= */
 .main-layout {
   display: flex;
   flex: 1;
-  height: calc(100% - 60px); /* Restlicher Platz unter der Topbar */
+  height: calc(100% - 60px);
   overflow: hidden;
 }
 
@@ -88,233 +77,83 @@ body {
   font-size: 0.75rem;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
   margin-bottom: 10px;
   padding-left: 10px;
 }
 
-/* Scrollbarer Content-Bereich */
 .container {
   flex: 1;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* Sanftes Scrollen auf iOS */
+  -webkit-overflow-scrolling: touch;
   padding: 20px max(16px, var(--safe-right)) 100px max(16px, var(--safe-left));
 }
 
-/* Sidebar Mobil-Modus */
 @media (max-width: 768px) {
   .sidebar {
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
-    transform: translateX(-100%); /* Aus dem Bild geschoben */
+    /* FIX FÜR IPHONE: Schiebt den Inhalt der Sidebar nach unten, damit die Menüleiste nichts verdeckt */
+    padding-top: calc(80px + env(safe-area-inset-top)); 
+    transform: translateX(-100%);
     box-shadow: 10px 0 20px rgba(0,0,0,0.5);
+    z-index: 999; /* Wichtig: Unter der Topbar (1000) */
   }
   .sidebar.open {
-    transform: translateX(0); /* Ins Bild geschoben */
+    transform: translateX(0);
   }
 }
 
-/* =============================
-   CARDS & CONTAINERS
-   ============================= */
-.card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+.cardlite { background: rgba(255,255,255,0.03); border: 1px dashed var(--line); border-radius: 12px; padding: 12px; margin-top: 12px; }
+.login-card { max-width: 400px; margin: 40px auto; }
 
-.cardlite {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed var(--line);
-  border-radius: 12px;
-  padding: 12px;
-  margin-top: 12px;
-}
-
-.login-card {
-  max-width: 400px;
-  margin: 40px auto;
-}
-
-/* =============================
-   TYPOGRAPHY & UTILS
-   ============================= */
 h2, h3, h4 { margin: 0 0 10px 0; font-weight: 600; }
 p { margin: 0 0 10px 0; line-height: 1.5; }
-
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
 .hidden { display: none !important; }
-
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
 .grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
 .grid2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 .divider { height: 1px; background: var(--line); margin: 16px 0; }
 
-/* =============================
-   FORMS & BUTTONS
-   ============================= */
 input, select, textarea {
-  width: 100%;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: #0b1220;
-  color: var(--text);
-  padding: 12px;
-  font-size: 1rem; /* Verhindert Auto-Zoom auf iOS */
-  outline: none;
-  transition: border-color 0.2s;
-  margin-bottom: 5px;
+  width: 100%; border-radius: 10px; border: 1px solid var(--line);
+  background: #0b1220; color: var(--text); padding: 12px; font-size: 1rem; margin-bottom: 5px; outline: none;
 }
 input:focus, select:focus { border-color: var(--accent); }
 
 .btn {
-  border: none;
-  background: var(--accent);
-  color: white;
-  padding: 12px 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.95rem;
-  transition: opacity 0.2s, transform 0.1s;
-  text-align: center;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  border: none; background: var(--accent); color: white; padding: 12px 16px;
+  border-radius: 10px; cursor: pointer; font-weight: 600; text-align: center;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .btn:active { opacity: 0.7; transform: scale(0.98); }
 .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
-.btn.danger { background: var(--danger); color: white; border: none; }
+.btn.danger { background: var(--danger); }
 .btn.grow { width: 100%; display: flex; }
 
-/* Navigation Buttons (Sidebar & Admin Tabs) */
-.tabbtn {
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--muted);
-  padding: 14px 15px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-.tabbtn:hover { background: rgba(255,255,255,0.05); }
-.tabbtn.active {
-  background: var(--accent);
-  color: white;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-}
+.tabbtn { width: 100%; text-align: left; background: transparent; border: 1px solid transparent; color: var(--muted); padding: 14px 15px; border-radius: 10px; font-size: 1rem; font-weight: 500; }
+.tabbtn.active { background: var(--accent); color: white; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
 
-/* Admin Sub-Navigation */
 .admin-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px; }
-.subtabbtn {
-  flex: 1;
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--muted);
-  padding: 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: center;
-  font-weight: 600;
-}
+.subtabbtn { flex: 1; background: transparent; border: 1px solid var(--line); color: var(--muted); padding: 10px; border-radius: 8px; font-weight: 600; }
 .subtabbtn.active { background: var(--accent); color: white; border-color: var(--accent); }
 
-/* =============================
-   LISTS & CHECKBOXES
-   ============================= */
 .list { display: flex; flex-direction: column; gap: 8px; }
+.item { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #0b1220; gap: 10px; }
 
-.item {
-  display: flex; justify-content: space-between; align-items: center;
-  border: 1px solid var(--line); border-radius: 12px;
-  padding: 12px; background: #0b1220; gap: 10px;
-}
+.checkbox-list { display: flex; flex-direction: column; gap: 8px; background: #0b1220; padding: 10px; border-radius: 10px; border: 1px solid var(--line); max-height: 250px; overflow-y: auto; }
+.check-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--card); border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+.check-item input[type="checkbox"] { width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
 
-/* Spezial-Liste für Checkboxen (z.B. Mitarbeiterauswahl & Hygiene) */
-.checkbox-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: #0b1220;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  max-height: 250px;
-  overflow-y: auto;
-}
+.task-selection-hint { color: var(--accent); font-weight: bold; font-size: 0.9rem; margin: 10px 0; text-align: center; }
 
-.check-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: var(--card);
-  border-radius: 8px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: border 0.2s;
-}
-.check-item:hover { border-color: var(--line); }
-.check-item input[type="checkbox"] { 
-  width: 22px; 
-  height: 22px; 
-  margin: 0; 
-  accent-color: var(--accent); /* Färbt die Checkbox blau auf modernen Browsern */
-}
+.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
+.modal-content { width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
 
-.task-selection-hint {
-  color: var(--accent);
-  font-weight: bold;
-  font-size: 0.9rem;
-  margin: 10px 0;
-  text-align: center;
-}
-
-/* =============================
-   MODAL (HYGIENE CHECKLISTE)
-   ============================= */
-.modal {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.8);
-  z-index: 2000;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-  backdrop-filter: blur(5px);
-}
-
-.modal-content {
-  width: 100%; 
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-/* =============================
-   TABELLEN (RANKING)
-   ============================= */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-}
-th {
-  text-align: left;
-  padding: 10px;
-  color: var(--muted);
-  border-bottom: 2px solid var(--line);
-  font-size: 0.9rem;
-}
-td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--line);
-}
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th { text-align: left; padding: 10px; color: var(--muted); border-bottom: 2px solid var(--line); font-size: 0.9rem; }
+td { padding: 12px 10px; border-bottom: 1px solid var(--line); }
