@@ -7,14 +7,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="./styles.css" />
-  <title>RA 93 </title>
+  <title>RA 93 Pro - Vollversion</title>
 </head>
 <body>
 
   <header class="topbar">
     <div class="top-left">
       <button id="menuToggle" class="btn ghost">☰</button>
-      <div class="brand">RA 93</div>
+      <div class="brand">RA 93 Pro</div>
     </div>
     <div class="top-right">
       <span id="whoami" class="who">—</span>
@@ -28,6 +28,11 @@
     <div class="modal-content card">
       <div class="row between"><h3>Einstellungen</h3><button id="closeSettingsBtn" class="btn ghost">X</button></div>
       <div class="divider"></div>
+      
+      <h4>🔔 Benachrichtigungen</h4>
+      <p class="small muted">Damit Erinnerungen ankommen, musst du sie hier im Browser einmalig erlauben.</p>
+      <button id="reqPushBtn" class="btn ghost" style="width:100%; margin-bottom: 20px;">Push-Benachrichtigungen aktivieren</button>
+
       <h4>🌴 Urlaubsmodus (Push stummschalten)</h4>
       <input id="muteUntilInp" class="input" type="number" placeholder="Datum z.B. 20260520" />
       <div class="row">
@@ -42,12 +47,8 @@
       <h2>Anmeldung</h2>
       <p class="muted">Bitte gib deinen Namen und dein Passwort ein.</p>
       <div class="grid" style="margin-top: 20px;">
-        <label>Name 
-          <input id="nameInp" type="text" class="input" placeholder="Vorname Nachname..." />
-        </label>
-        <label>Passwort 
-          <input id="passInp" type="password" class="input" placeholder="Passwort eingeben..." />
-        </label>
+        <label>Name <input id="nameInp" type="text" class="input" placeholder="Vorname Nachname..." /></label>
+        <label>Passwort <input id="passInp" type="password" class="input" placeholder="Passwort eingeben..." /></label>
       </div>
       <button id="loginBtn" class="btn grow" style="margin-top:20px">Starten</button>
     </div>
@@ -58,7 +59,7 @@
     <nav id="sidebar" class="sidebar">
       <div class="sidebar-header">Hauptmenü</div>
       <button class="tabbtn active" data-tab="tasksTab">📋 Aufgaben</button>
-      <button class="tabbtn" data-tab="hygieneTab">🧹 Hygiene</button>
+      <button class="tabbtn" data-tab="hygieneTab">🧹 Grunddesinfektion</button>
       <button class="tabbtn" data-tab="ridesTab">🚗 Fahrtenbuch</button>
       <div class="divider"></div>
       <button class="tabbtn hidden" data-tab="adminTab" id="adminTabBtn">⚙️ Admin Bereich</button>
@@ -72,9 +73,7 @@
           <input id="tagSearch" class="search" placeholder="Bereich suchen..." />
           <div id="tagList" class="list"></div>
         </div>
-
         <div class="divider"></div>
-
         <div class="card">
           <h2 id="openTagTitle">Bereich wählen</h2>
           <div class="cardlite">
@@ -89,19 +88,20 @@
 
       <section id="hygieneTab" class="tab hidden">
         <div class="card">
-          <h2>Hygiene</h2>
+          <h2>Grunddesinfektion</h2>
           <div id="hygieneUserList" class="list"></div>
         </div>
       </section>
 
       <section id="ridesTab" class="tab hidden">
         <div class="card">
-          <h2>Fahrten (72h)</h2>
+          <h2>Fahrten eintragen</h2>
+          <p class="small muted">Punkte werden gutgeschrieben, sobald der Admin die Fahrt abgenommen hat.</p>
           <div class="grid2">
             <label>Fahrer <select id="rideNameSel" class="select"></select></label>
             <label>Einsatznr <input id="rideEinsatz" class="input" type="number" /></label>
           </div>
-          <button id="saveRideBtn" class="btn grow">Fahrt speichern</button>
+          <button id="saveRideBtn" class="btn grow">Fahrt zur Abnahme senden</button>
           <div id="ridesList" class="list" style="margin-top:20px"></div>
         </div>
       </section>
@@ -123,13 +123,19 @@
             </div>
             <button id="addExtraTaskBtn" class="btn grow">Heute hinzufügen</button>
           </div>
+          
           <div class="card">
+            <h4>🚗 Offene Abnahmen (Fahrten)</h4>
+            <div id="finalListRides" class="list"></div>
+
+            <div class="divider"></div>
+
             <h4>📋 Offene Abnahmen (Aufgaben)</h4>
             <div id="finalListTasks" class="list"></div>
             
             <div class="divider"></div>
             
-            <h4>🧹 Offene Abnahmen (Hygiene)</h4>
+            <h4>🧹 Offene Abnahmen (GD)</h4>
             <div id="finalListHygiene" class="list"></div>
             
             <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:30px">🛠️ Tag Reset (Daten für heute neu laden)</button>
@@ -157,8 +163,11 @@
 
         <section id="statsSub" class="subtab hidden">
           <div class="card">
-            <h3>Punkte-Ranking</h3>
-            <table style="width:100%; text-align:left;">
+            <div class="row between">
+              <h3>Punkte-Ranking</h3>
+              <button id="exportCsvBtn" class="btn ghost">📊 CSV/Excel Export</button>
+            </div>
+            <table style="width:100%; text-align:left; margin-top: 15px;">
               <thead><tr><th>Name</th><th>Aufg.</th><th>Fahrten</th><th>Gesamt</th></tr></thead>
               <tbody id="pointsTableBody"></tbody>
             </table>
@@ -166,26 +175,37 @@
         </section>
 
         <section id="setupSub" class="subtab hidden">
+          
           <div class="card">
-            <h4>1. Bereiche (Tags)</h4>
+            <h4>1. Punkte manuell bearbeiten</h4>
+            <select id="editPointsUserSel" class="select"></select>
+            <div class="grid2">
+              <label>Aufgaben (Pkte) <input id="editTasksInp" type="number" class="input" /></label>
+              <label>Fahrten (Pkte) <input id="editRidesInp" type="number" class="input" /></label>
+            </div>
+            <button id="savePointsBtn" class="btn grow">Punkte überschreiben</button>
+          </div>
+
+          <div class="card">
+            <h4>2. Bereiche (Tags)</h4>
             <div class="row"><input id="tagAddInp" class="input" placeholder="z.B. RTW 1"/><button id="tagAddBtn" class="btn ghost">+</button></div>
             <div id="adminTagList" class="list"></div>
           </div>
           
           <div class="card">
-            <h4>2. Mitarbeiter Liste</h4>
+            <h4>3. Mitarbeiter Liste</h4>
             <div class="row"><input id="empAdd" class="input" placeholder="Neuer Name"/><button id="empAddBtn" class="btn ghost">+</button></div>
             <div id="empList" class="list"></div>
           </div>
 
           <div class="card">
-            <h4>3. Admin Rechte vergeben</h4>
+            <h4>4. Admin Rechte vergeben</h4>
             <div class="row"><input id="adminUidAdd" class="input" placeholder="Name für Admin"/><button id="adminUidAddBtn" class="btn ghost">Admin +</button></div>
             <div class="row"><input id="superUidAdd" class="input" placeholder="Name für Superadmin"/><button id="superUidAddBtn" class="btn ghost">Super +</button></div>
           </div>
 
           <div class="card">
-            <h4>4. Hygiene Kategorien & Vorlagen</h4>
+            <h4>5. Hygiene Kategorien & Vorlagen</h4>
             <div class="row"><input id="hygieneCatInp" class="input" placeholder="Neue Kategorie..."/><button id="hygieneCatAddBtn" class="btn ghost">+</button></div>
             <div id="hygieneCatList" class="list"></div>
             <div class="divider"></div>
