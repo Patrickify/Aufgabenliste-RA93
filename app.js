@@ -46,37 +46,18 @@ onAuthStateChanged(auth, async user => {
   } else { show($("loginView"), true); show($("appView"), false); }
 });
 
-/* --- WIEDERHERGESTELLTE PASSWORT-LOGIK --- */
 if($("loginBtn")) $("loginBtn").onclick = async () => {
-  const inputName = n($("nameInp").value);
-  const pass = n($("passInp").value);
+  const inputName = n($("nameInp").value), pass = n($("passInp").value);
   if (!inputName || !pass) return alert("Bitte Name und Passwort eingeben!");
-  
   const testKey = keyOfName(inputName);
-  
-  // Passwort verschlüsseln (Hashing)
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${testKey}:${pass}`))
-    .then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2,"0")).join(""));
-  
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${testKey}:${pass}`)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2,"0")).join(""));
   const empSnap = await getDoc(doc(db, "employees", testKey));
   if (!empSnap.exists()) return alert("Name ist nicht im System registriert!");
-  
   const empData = empSnap.data();
-  
-  // Wenn der Mitarbeiter noch kein Passwort hat, speichern wir das aktuelle
-  if (!empData.passHash) {
-    await updateDoc(doc(db, "employees", testKey), { passHash: hash });
-  } 
-  // Ansonsten prüfen wir, ob das eingegebene Passwort mit dem Hash übereinstimmt
-  else if (empData.passHash !== hash) {
-    return alert("Passwort falsch!");
-  }
-  
-  localStorage.setItem("meName", empData.name); 
-  localStorage.setItem("meKey", testKey); 
-  location.reload();
+  if (!empData.passHash) { await updateDoc(doc(db, "employees", testKey), { passHash: hash }); } 
+  else if (empData.passHash !== hash) { return alert("Passwort falsch!"); }
+  localStorage.setItem("meName", empData.name); localStorage.setItem("meKey", testKey); location.reload();
 };
-/* ----------------------------------------- */
 
 function initAppDataStreams() {
   onSnapshot(query(collection(db, "employees"), orderBy("name")), s => {
@@ -84,7 +65,9 @@ function initAppDataStreams() {
     if($("doneByCheckBoxes")) $("doneByCheckBoxes").innerHTML = employees.map(e => `<label class="check-item"><input type="checkbox" name="worker" value="${esc(e.name)}"> <span>${esc(e.name)}</span></label>`).join("");
     if($("rideNameSel")) $("rideNameSel").innerHTML = employees.map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join("");
     if(isAdmin && $("empList")) $("empList").innerHTML = employees.map(e => `<div class="item"><span>${esc(e.name)}</span><button class="btn danger" onclick="window.delDoc('employees','${keyOfName(e.name)}')">X</button></div>`).join("");
+    if(isAdmin && $("editPointsUserSel")) $("editPointsUserSel").innerHTML = `<option value="">Mitarbeiter wählen...</option>` + employees.map(e => `<option value="${keyOfName(e.name)}">${esc(e.name)}</option>`).join("");
   });
+  
   onSnapshot(query(collection(db, "tags"), orderBy("tagId")), s => {
     tags = s.docs.map(d => ({id:d.id, ...d.data()})); renderTagList();
     const opts = tags.map(t=>`<option value="${t.tagKey}">${t.tagId}</option>`).join("");
@@ -92,9 +75,14 @@ function initAppDataStreams() {
     if($("extraTaskTagSel")) $("extraTaskTagSel").innerHTML = opts;
     if(isAdmin && $("adminTagList")) $("adminTagList").innerHTML = tags.map(t=>`<div class="item"><span>${t.tagId}</span><button class="btn danger" onclick="window.delDoc('tags','${t.id}')">X</button></div>`).join("");
   });
+  
   onSnapshot(query(collection(db, "rides"), orderBy("createdAt", "desc"), limit(50)), s => {
-    if($("ridesList")) $("ridesList").innerHTML = s.docs.map(d => `<div class="item"><span>🚗 ${esc(d.data().name)} (${esc(d.data().einsatz)})</span>${isAdmin ? `<button class="btn danger" onclick="window.delRide('${d.id}', '${keyOfName(d.data().name)}')">X</button>` : ''}</div>`).join("");
+    if($("ridesList")) $("ridesList").innerHTML = s.docs.map(d => {
+      const isOffen = d.data().status === "open";
+      return `<div class="item"><span>🚗 ${esc(d.data().name)} (${esc(d.data().einsatz)}) - ${isOffen ? "⏳ Offen" : "✅ OK"}</span>${isAdmin ? `<button class="btn danger" onclick="window.delRide('${d.id}', '${keyOfName(d.data().name)}', '${d.data().status}')">X</button>` : ''}</div>`;
+    }).join("");
   });
+  
   onSnapshot(collection(db, "hygiene_cats"), s => {
     hygieneCats = s.docs.map(d => ({id: d.id, ...d.data()})); renderHygieneUserView();
     if(isAdmin && $("hygieneCatList")) $("hygieneCatList").innerHTML = hygieneCats.map(c => `<div class="item"><span>${esc(c.title)}</span><button class="btn danger" onclick="window.delDoc('hygiene_cats','${c.id}')">X</button></div>`).join("");
@@ -126,6 +114,7 @@ if($("markSelectedDoneBtn")) $("markSelectedDoneBtn").onclick = async () => {
 };
 
 function initAdminLogic() {
+  // Wochenplan Filter
   const updatePlanFilter = () => {
     if(!$("planDaySel") || !$("planTagSel")) return;
     const d = Number($("planDaySel").value), t = $("planTagSel").value;
@@ -136,6 +125,7 @@ function initAdminLogic() {
   if($("planDaySel")) $("planDaySel").onchange = updatePlanFilter;
   if($("planTagSel")) $("planTagSel").onchange = updatePlanFilter; updatePlanFilter();
 
+  // Abnahme Aufgaben & Hygiene
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("status", "==", "done")), s => {
     const tH = [], hH = [];
     s.docs.forEach(d => {
@@ -146,6 +136,13 @@ function initAdminLogic() {
     if($("finalListTasks")) $("finalListTasks").innerHTML = tH.join("");
     if($("finalListHygiene")) $("finalListHygiene").innerHTML = hH.join("");
   });
+
+  // Abnahme Fahrten
+  onSnapshot(query(collection(db, "rides"), where("status", "==", "open")), s => {
+    if($("finalListRides")) $("finalListRides").innerHTML = s.docs.map(d => `<div class="item"><span>🚗 ${esc(d.data().name)} (${esc(d.data().einsatz)})</span><div class="row"><button class="btn danger" onclick="window.rejectRide('${d.id}')">❌</button><button class="btn ghost" onclick="window.finalCheckRide('${d.id}', '${keyOfName(d.data().name)}')">OK</button></div></div>`).join("");
+  });
+
+  // Ranking Rendering
   onSnapshot(collection(db, "points_tasks"), st => onSnapshot(collection(db, "points_rides"), sr => renderPointsTable(st, sr)));
 }
 
@@ -165,23 +162,30 @@ if($("regenTestBtn")) $("regenTestBtn").onclick = async () => {
     const ex = await getDocs(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()))); 
     const b = writeBatch(db); ex.forEach(d => b.delete(d.ref)); await b.commit(); 
     await setDoc(doc(db, "meta", "day_state"), { lastDayKey: "" }, { merge: true }); 
-    await runDayChange();
-    alert("Reset erfolgreich! Aufgaben wurden neu geladen.");
-    location.reload(); 
+    await runDayChange(); alert("Reset erfolgreich!"); location.reload(); 
   } 
 };
 
 function initPushSystem() {
   if($("settingsBtn")) $("settingsBtn").onclick = () => show($("settingsCard"), true);
   if($("closeSettingsBtn")) $("closeSettingsBtn").onclick = () => show($("settingsCard"), false);
+  
+  // PUSH ERLAUBNIS ANFRAGEN
+  if($("reqPushBtn")) $("reqPushBtn").onclick = () => {
+    Notification.requestPermission().then(p => { alert(p === "granted" ? "Benachrichtigungen aktiviert!" : "Zugriff blockiert."); });
+  };
+
   if($("saveMuteBtn")) $("saveMuteBtn").onclick = async () => {
     const v = $("muteUntilInp").value;
     if(v && auth.currentUser) { await setDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: v }, { merge: true }); alert("Urlaub gespeichert!"); }
   };
   if($("clearMuteBtn")) $("clearMuteBtn").onclick = async () => { if(auth.currentUser) { await setDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: "" }, { merge: true }); alert("Urlaub beendet!"); } };
+  
   setInterval(() => {
     if (myMuteUntil && Number(myMuteUntil) >= Number(dayKeyNow())) return;
-    if ([9, 12, 14, 16, 18].includes(new Date().getHours()) && new Date().getMinutes() === 0 && Notification.permission === "granted") new Notification("Check RA 93!");
+    if ([9, 12, 14, 16, 18].includes(new Date().getHours()) && new Date().getMinutes() === 0 && Notification.permission === "granted") {
+      new Notification("RA 93 Pro", { body: "Schau nach, ob noch Aufgaben offen sind!" });
+    }
   }, 60000);
 }
 
@@ -198,28 +202,47 @@ function setupTabs(btnClass, tabClass) {
 }
 setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
 
+// --- ADMIN FEATURES & BUTTONS --- //
 if($("addExtraTaskBtn")) $("addExtraTaskBtn").onclick = async () => {
-  const text = n($("extraTaskInp").value), tagKey = $("extraTaskTagSel").value;
-  if(!text || !tagKey) return;
+  const text = n($("extraTaskInp").value), tagKey = $("extraTaskTagSel").value; if(!text || !tagKey) return;
   await addDoc(collection(db, "daily_tasks"), { text, tagKey, dateKey: dayKeyNow(), status: "open", type: "task", doneBy: [] });
   $("extraTaskInp").value = ""; alert("Zusatzaufgabe live!");
 };
 
-if($("empAddBtn")) $("empAddBtn").onclick = async () => {
-  const v = n($("empAdd").value); if(!v) return; await setDoc(doc(db, "employees", keyOfName(v)), { name: v, passHash: "" }); $("empAdd").value = "";
-};
+if($("empAddBtn")) $("empAddBtn").onclick = async () => { const v = n($("empAdd").value); if(!v) return; await setDoc(doc(db, "employees", keyOfName(v)), { name: v, passHash: "" }); $("empAdd").value = ""; };
 if($("adminUidAddBtn")) $("adminUidAddBtn").onclick = async () => { if(!isAdmin) return; await setDoc(doc(db, "admins_by_name", keyOfName($("adminUidAdd").value)), { enabled: true }); $("adminUidAdd").value = ""; };
 if($("superUidAddBtn")) $("superUidAddBtn").onclick = async () => { if(!isSuperAdmin) return; await setDoc(doc(db, "superadmins_by_name", keyOfName($("superUidAdd").value)), { enabled: true }); $("superUidAdd").value = ""; };
 if($("tagAddBtn")) $("tagAddBtn").onclick = async () => { const v = n($("tagAddInp").value); if(!v) return; await setDoc(doc(db, "tags", keyOfName(v)), { tagId: v, tagKey: keyOfName(v) }); $("tagAddInp").value = ""; };
-if($("planAddBtn")) $("planAddBtn").onclick = async () => {
-  const text = n($("planTextInp").value); if(!text) return;
-  await addDoc(collection(db, "weekly_tasks"), { weekday: Number($("planDaySel").value), tagKey: $("planTagSel").value, text }); $("planTextInp").value = "";
-};
+if($("planAddBtn")) $("planAddBtn").onclick = async () => { const text = n($("planTextInp").value); if(!text) return; await addDoc(collection(db, "weekly_tasks"), { weekday: Number($("planDaySel").value), tagKey: $("planTagSel").value, text }); $("planTextInp").value = ""; };
 if($("hygieneCatAddBtn")) $("hygieneCatAddBtn").onclick = async () => { const v = n($("hygieneCatInp").value); if(!v) return; await addDoc(collection(db, "hygiene_cats"), { title: v }); $("hygieneCatInp").value = ""; };
 if($("hygieneItemAddBtn")) $("hygieneItemAddBtn").onclick = async () => {
   const subs = $("hygieneSubtasksInp").value.split('\n').filter(l => l.trim() !== "");
   await addDoc(collection(db, "hygiene_templates"), { catId: $("hygieneItemCatSel").value, text: $("hygieneItemInp").value, subtasks: subs, type: "hygiene" });
   $("hygieneItemInp").value = ""; $("hygieneSubtasksInp").value = ""; alert("Vorlage gespeichert!");
+};
+
+// CSV EXPORT LOGIK
+if($("exportCsvBtn")) $("exportCsvBtn").onclick = () => {
+  let csv = "Name;Aufgaben;Fahrten;Gesamt\n";
+  const rows = document.querySelectorAll("#pointsTableBody tr");
+  if(rows.length === 0) return alert("Keine Daten zum Exportieren.");
+  rows.forEach(tr => { let c = tr.querySelectorAll("td"); csv += `${c[0].innerText};${c[1].innerText};${c[2].innerText};${c[3].innerText}\n`; });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Punkte_RA93_${dayKeyNow()}.csv`; link.click();
+};
+
+// PUNKTE BEARBEITEN LOGIK
+if($("editPointsUserSel")) $("editPointsUserSel").onchange = async () => {
+  const k = $("editPointsUserSel").value; if(!k) return;
+  const tSnap = await getDoc(doc(db, "points_tasks", k)), rSnap = await getDoc(doc(db, "points_rides", k));
+  $("editTasksInp").value = tSnap.exists() ? tSnap.data().points || 0 : 0;
+  $("editRidesInp").value = rSnap.exists() ? rSnap.data().points || 0 : 0;
+};
+if($("savePointsBtn")) $("savePointsBtn").onclick = async () => {
+  const k = $("editPointsUserSel").value; if(!k) return alert("Mitarbeiter wählen!");
+  await setDoc(doc(db, "points_tasks", k), { points: Number($("editTasksInp").value) || 0 }, { merge: true });
+  await setDoc(doc(db, "points_rides", k), { points: Number($("editRidesInp").value) || 0 }, { merge: true });
+  alert("Punkte erfolgreich aktualisiert!");
 };
 
 window.openHygCheck = async (id) => {
@@ -244,10 +267,23 @@ function renderHygieneUserView() {
   });
 }
 
+/* --- FAHRTEN LOGIK (Mit Abnahme) --- */
 if($("saveRideBtn")) $("saveRideBtn").onclick = async () => {
   const name = $("rideNameSel").value, einsatz = $("rideEinsatz").value; if(!name || !einsatz) return;
-  await addDoc(collection(db, "rides"), { name, einsatz, createdAt: serverTimestamp() });
-  await setDoc(doc(db, "points_rides", keyOfName(name)), { points: increment(1) }, { merge: true }); $("rideEinsatz").value = "";
+  await addDoc(collection(db, "rides"), { name, einsatz, status: "open", createdAt: serverTimestamp() });
+  $("rideEinsatz").value = ""; alert("Fahrt gespeichert. Warte auf Admin-Abnahme!");
+};
+
+window.finalCheckRide = async (id, userKey) => {
+  await updateDoc(doc(db, "rides", id), { status: "done" });
+  await setDoc(doc(db, "points_rides", userKey), { points: increment(1) }, { merge: true });
+};
+window.rejectRide = async (id) => { await deleteDoc(doc(db, "rides", id)); };
+
+window.delRide = async (id, userKey, status) => { 
+  if(!confirm("Fahrt löschen?")) return; 
+  if(status !== "open") { await setDoc(doc(db, "points_rides", userKey), { points: increment(-1) }, { merge: true }); }
+  await deleteDoc(doc(db, "rides", id)); 
 };
 
 window.finalCheck = async (id) => {
@@ -257,7 +293,6 @@ window.finalCheck = async (id) => {
 };
 
 window.rejectTask = async (id) => { await updateDoc(doc(db, "daily_tasks", id), { status: "open", doneBy: [] }); };
-window.delRide = async (id, userKey) => { if(!confirm("Punkt abziehen?")) return; await deleteDoc(doc(db, "rides", id)); await setDoc(doc(db, "points_rides", userKey), { points: increment(-1) }, { merge: true }); };
 
 function renderPointsTable(st, sr) {
   if(!$("pointsTableBody")) return; const res = {};
