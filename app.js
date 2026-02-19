@@ -30,8 +30,12 @@ function dayKeyNow() { const d = new Date(); return `${d.getFullYear()}${String(
 function monthKey() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
 function stamp() { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
-/* --- 1. AUTHENTIFIZIERUNG & ROLLEN --- */
+/* --- 1. INITIALISIERUNG & LOGIN --- */
 signInAnonymously(auth);
+
+// WICHTIG: Streams müssen VOR der Auth-Prüfung starten für das Login-Dropdown!
+initStreams();
+
 onAuthStateChanged(auth, async user => {
   if (user && meKey) {
     const uRef = doc(db, "users", user.uid);
@@ -50,29 +54,39 @@ onAuthStateChanged(auth, async user => {
     $("whoami").textContent = `${meName}${isSuperAdmin ? " (S)" : isAdmin ? " (A)" : ""}`;
     show($("adminTabBtn"), isAdmin); show($("loginView"), false); show($("appView"), true);
     
-    initStreams();
     if (isAdmin) { initAdminLogic(); runDayChange(); initPushSystem(); }
-  } else { show($("loginView"), true); }
+  } else { 
+    show($("loginView"), true); 
+    show($("appView"), false);
+  }
 });
 
 if ($("loginBtn")) $("loginBtn").onclick = async () => {
-  const name = n($("nameSel").value), pass = n($("passInp").value);
-  if (!name || !pass) return alert("Eingabe fehlt");
+  const name = $("nameSel").value;
+  const pass = n($("passInp").value);
+  if (!name || !pass) return alert("Bitte Name wählen und Passwort eingeben!");
+  
   const key = keyOfName(name);
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${key}:${pass}`)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
   const eSnap = await getDoc(doc(db, "employees", key));
-  if (!eSnap.exists()) return alert("User unbekannt");
+  
+  if (!eSnap.exists()) return alert("Benutzer nicht gefunden!");
   if (!eSnap.data().passHash) await updateDoc(doc(db, "employees", key), { passHash: hash });
-  else if (eSnap.data().passHash !== hash) return alert("Passwort falsch");
+  else if (eSnap.data().passHash !== hash) return alert("Passwort falsch!");
+  
   localStorage.setItem("meName", name); localStorage.setItem("meKey", key); location.reload();
 };
 
-/* --- 2. DATA STREAMS (LIVE-UPDATES) --- */
+/* --- 2. DATA STREAMS --- */
 function initStreams() {
+  // Mitarbeiter für Login und Listen laden
   onSnapshot(query(collection(db, "employees"), orderBy("name")), s => {
     employees = s.docs.map(d => d.data());
-    const opts = employees.map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join("");
-    $("nameSel").innerHTML = opts; $("rideNameSel").innerHTML = opts;
+    const opts = `<option value="">Wer bist du?</option>` + employees.map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join("");
+    
+    if ($("nameSel")) $("nameSel").innerHTML = opts; 
+    if ($("rideNameSel")) $("rideNameSel").innerHTML = opts;
+    
     if ($("doneByCheckBoxes")) {
       $("doneByCheckBoxes").innerHTML = employees.map(e => `
         <label style="display:flex; align-items:center; gap:12px; padding:12px; background:#1a1f26; border-radius:8px; width:100%;">
@@ -80,9 +94,10 @@ function initStreams() {
           <span style="font-size:1.1rem">${esc(e.name)}</span>
         </label>`).join("");
     }
-    if (isAdmin) $("empList").innerHTML = employees.map(e => `<div class="item"><span>${esc(e.name)}</span><button class="btn danger" onclick="window.delDoc('employees','${keyOfName(e.name)}')">X</button></div>`).join("");
+    if (isAdmin && $("empList")) $("empList").innerHTML = employees.map(e => `<div class="item"><span>${esc(e.name)}</span><button class="btn danger" onclick="window.delDoc('employees','${keyOfName(e.name)}')">X</button></div>`).join("");
   });
 
+  // Tags/Bereiche
   onSnapshot(query(collection(db, "tags"), orderBy("tagId")), s => {
     tags = s.docs.map(d => ({id:d.id, ...d.data()}));
     renderTagList();
@@ -92,6 +107,7 @@ function initStreams() {
     if($("adminTagList")) $("adminTagList").innerHTML = tags.map(t=>`<div class="item"><span>${t.tagId}</span><button class="btn danger" onclick="window.delDoc('tags','${t.id}')">X</button></div>`).join("");
   });
 
+  // Fahrten (Rides)
   onSnapshot(query(collection(db, "rides"), orderBy("createdAt", "desc"), limit(50)), s => {
     $("ridesList").innerHTML = s.docs.map(d => {
       const r = d.data();
@@ -99,6 +115,7 @@ function initStreams() {
     }).join("");
   });
 
+  // Hygiene Kategorien
   onSnapshot(collection(db, "hygiene_cats"), s => {
     hygieneCats = s.docs.map(d => ({id: d.id, ...d.data()}));
     renderHygieneUserView();
@@ -109,7 +126,7 @@ function initStreams() {
   });
 }
 
-/* --- 3. AUFGABEN-LOGIK (USER) --- */
+/* --- 3. AUFGABEN-LOGIK --- */
 function renderTagList() {
   const q = n($("tagSearch").value).toLowerCase();
   $("tagList").innerHTML = tags.filter(t=>t.tagId.toLowerCase().includes(q)).map(t=>`<div class="item"><span>🏷️ ${t.tagId}</span><button class="btn ghost" onclick="window.openTag('${t.tagKey}','${t.tagId}')">Öffnen</button></div>`).join("");
@@ -118,10 +135,7 @@ function renderTagList() {
 window.openTag = (key, id) => {
   currentTagKey = key; $("openTagTitle").textContent = `Bereich: ${id}`;
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("tagKey", "==", key)), s => {
-    $("taskList").innerHTML = s.docs.map(d => {
-      const t = d.data(); if(t.status !== "open" && !isAdmin) return "";
-      return `<div class="item"><span>${t.status==='open'?'⏳':'✅'} ${esc(t.text)}</span><button class="btn ghost" onclick="window.selectTask('${d.id}', '${esc(t.text)}')">Wählen</button></div>`;
-    }).join("");
+    $("taskList").innerHTML = s.docs.map(d => d.data().status === 'open' ? `<div class="item"><span>${esc(d.data().text)}</span><button class="btn ghost" onclick="window.selectTask('${d.id}', '${esc(d.data().text)}')">Wählen</button></div>` : "").join("");
   });
 };
 
@@ -129,20 +143,17 @@ window.selectTask = (id, text) => { selectedTaskId = id; $("taskHint").textConte
 
 $("markSelectedDoneBtn").onclick = async () => {
   const who = Array.from(document.querySelectorAll('input[name="worker"]:checked')).map(cb => cb.value);
-  if(!selectedTaskId || who.length === 0) return alert("Bitte Aufgabe & Helfer wählen!");
+  if(!selectedTaskId || who.length === 0) return alert("Wähle Aufgabe & Personen!");
   await updateDoc(doc(db, "daily_tasks", selectedTaskId), { status: "done", doneBy: who, doneAt: stamp() });
   selectedTaskId = ""; $("taskHint").textContent = "";
   document.querySelectorAll('input[name="worker"]').forEach(cb => cb.checked = false);
 };
 
-/* --- 4. HYGIENE & CHECKLISTEN --- */
+/* --- 4. HYGIENE / CHECKLISTEN --- */
 window.openHygCheck = async (id) => {
   activeCheckTaskId = id; const snap = await getDoc(doc(db, "daily_tasks", id)); const data = snap.data();
   $("modalTitle").textContent = data.text; const cont = $("modalSubtasks"); cont.innerHTML = "";
-  if (!data.subtasks || data.subtasks.length === 0) { 
-    if(confirm("Abschließen?")) { await updateDoc(doc(db, "daily_tasks", id), { status: "done", doneBy: [meName], doneAt: stamp() }); } 
-    return; 
-  }
+  if (!data.subtasks || data.subtasks.length === 0) { if(confirm("Abschließen?")) { await updateDoc(doc(db, "daily_tasks", id), { status: "done", doneBy: [meName], doneAt: stamp() }); } return; }
   data.subtasks.forEach(sub => cont.innerHTML += `<label class="item"><input type="checkbox" class="sub-check"> <span>${esc(sub)}</span></label>`);
   show($("checkModal"), true);
 };
@@ -151,7 +162,7 @@ $("saveCheckBtn").onclick = async () => {
   if (Array.from(document.querySelectorAll(".sub-check")).every(c => c.checked)) {
     await updateDoc(doc(db, "daily_tasks", activeCheckTaskId), { status: "done", doneBy: [meName], doneAt: stamp() });
     show($("checkModal"), false);
-  } else alert("Bitte alle Punkte abhaken!");
+  } else alert("Bitte alles abhaken!");
 };
 
 function renderHygieneUserView() {
@@ -159,28 +170,12 @@ function renderHygieneUserView() {
   hygieneCats.forEach(cat => {
     cont.innerHTML += `<h3>${esc(cat.title)}</h3><div id="hlist_${cat.id}" class="list"></div>`;
     onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("catId", "==", cat.id)), snap => {
-      const list = $(`hlist_${cat.id}`); if(!list) return;
-      list.innerHTML = snap.docs.map(d => d.data().status === 'open' ? `<div class="item"><span>${esc(d.data().text)}</span><button class="btn ghost" onclick="window.openHygCheck('${d.id}')">Check</button></div>` : "").join("");
+      const l = $(`hlist_${cat.id}`); if(l) l.innerHTML = snap.docs.map(d => d.data().status === 'open' ? `<div class="item"><span>${esc(d.data().text)}</span><button class="btn ghost" onclick="window.openHygCheck('${d.id}')">Check</button></div>` : "").join("");
     });
   });
 }
 
-/* --- 5. FAHRTEN & PUNKTE-ABZUG --- */
-$("addRideBtn").onclick = async () => {
-  const name = $("rideNameSel").value, einsatz = $("rideEinsatz").value;
-  if(!name || !einsatz) return;
-  await addDoc(collection(db, "rides"), { name, einsatz, createdMs: Date.now(), createdAt: serverTimestamp() });
-  await setDoc(doc(db, "points_rides", keyOfName(name)), { points: increment(1) }, { merge: true });
-  $("rideEinsatz").value = "";
-};
-
-window.delRide = async (id, userKey) => {
-  if(!confirm("Fahrt löschen? Punkt wird abgezogen!")) return;
-  await deleteDoc(doc(db, "rides", id));
-  await setDoc(doc(db, "points_rides", userKey), { points: increment(-1) }, { merge: true });
-};
-
-/* --- 6. ADMIN LOGIK (ABNAHME & SYSTEM) --- */
+/* --- 5. ADMIN LOGIK --- */
 function initAdminLogic() {
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("status", "==", "done")), s => {
     const tH = [], hH = [];
@@ -201,7 +196,7 @@ window.finalCheck = async (id) => {
   await deleteDoc(dRef);
 };
 
-window.rejectTask = async (id) => { if(confirm("Zurückweisen?")) await updateDoc(doc(db, "daily_tasks", id), { status: "open", doneBy: [] }); };
+window.rejectTask = async (id) => { if(confirm("Wieder öffnen?")) await updateDoc(doc(db, "daily_tasks", id), { status: "open", doneBy: [] }); };
 
 function renderPointsTable(sTasks, sRides) {
   const stats = {};
@@ -210,18 +205,31 @@ function renderPointsTable(sTasks, sRides) {
   if($("pointsTableBody")) $("pointsTableBody").innerHTML = Object.keys(stats).map(k => `<tr><td>${k}</td><td>${stats[k].t}</td><td>${stats[k].r}</td><td><b>${stats[k].t + stats[k].r}</b></td></tr>`).join("");
 }
 
-/* --- 7. SETUP-FUNKTIONEN (ADMIN) --- */
+/* --- 6. SETUP & TABS --- */
+function setupTabs(btnClass, tabClass) {
+  document.querySelectorAll(btnClass).forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(tabClass).forEach(t => show(t, false));
+      show($(btn.dataset.tab || btn.dataset.subtab), true);
+      document.querySelectorAll(btnClass).forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    };
+  });
+}
+setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
+
+/* --- 7. SONSTIGE ADMIN BUTTONS --- */
+if($("tagAddBtn")) $("tagAddBtn").onclick = async () => {
+  const v = n($("tagAddInp").value); if(!v) return;
+  await setDoc(doc(db, "tags", keyOfName(v)), { tagId: v, tagKey: keyOfName(v) });
+  $("tagAddInp").value = "";
+};
+
 if($("addExtraTaskBtn")) $("addExtraTaskBtn").onclick = async () => {
   const text = n($("extraTaskInp").value); const tagKey = $("extraTaskTagSel").value;
   if(!text) return;
   await addDoc(collection(db, "daily_tasks"), { text, tagKey, dateKey: dayKeyNow(), status: "open", type: "task", doneBy: [] });
   $("extraTaskInp").value = ""; alert("Zusatzaufgabe live!");
-};
-
-$("tagAddBtn").onclick = async () => {
-  const v = n($("tagAddInp").value); if(!v) return;
-  await setDoc(doc(db, "tags", keyOfName(v)), { tagId: v, tagKey: keyOfName(v) });
-  $("tagAddInp").value = "";
 };
 
 $("hygieneItemAddBtn").onclick = async () => {
@@ -239,6 +247,7 @@ $("superUidAddBtn").onclick = async () => { if(!isSuperAdmin) return alert("Nur 
 $("adminUidAddBtn").onclick = async () => { if(!isAdmin) return; await setDoc(doc(db, "admins_by_name", keyOfName($("adminUidAdd").value)), { enabled: true }); $("adminUidAdd").value = ""; };
 $("empAddBtn").onclick = async () => { await setDoc(doc(db, "employees", keyOfName($("empAdd").value)), { name: $("empAdd").value, passHash: "" }); $("empAdd").value=""; };
 $("hygieneCatAddBtn").onclick = async () => { if($("hygieneCatInp").value) await addDoc(collection(db, "hygiene_cats"), { title: $("hygieneCatInp").value }); $("hygieneCatInp").value=""; };
+
 window.delDoc = async (col, id) => { if(confirm("Löschen?")) await deleteDoc(doc(db, col, id)); };
 
 /* --- 8. GENERATOR & PUSH --- */
@@ -257,8 +266,6 @@ async function runDayChange() {
 function initPushSystem() {
   $("settingsBtn").onclick = () => show($("settingsCard"), true);
   $("closeSettingsBtn").onclick = () => show($("settingsCard"), false);
-  $("saveMuteBtn").onclick = async () => { const v = $("muteUntilInp").value; await updateDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: v }); myMuteUntil = v; alert("Gespeichert"); };
-  $("clearMuteBtn").onclick = async () => { await updateDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: "" }); myMuteUntil = ""; };
   setInterval(() => {
     if (myMuteUntil && Number(myMuteUntil) >= Number(dayKeyNow())) return;
     const h = new Date().getHours();
@@ -267,19 +274,6 @@ function initPushSystem() {
     }
   }, 60000);
 }
-
-/* --- 9. UI & TABS --- */
-function setupTabs(btnClass, tabClass) {
-  document.querySelectorAll(btnClass).forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll(tabClass).forEach(t => show(t, false));
-      show($(btn.dataset.tab || btn.dataset.subtab), true);
-      document.querySelectorAll(btnClass).forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-    };
-  });
-}
-setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
 
 $("logoutBtn").onclick = () => { localStorage.clear(); location.reload(); };
 $("reloadBtn").onclick = () => location.reload();
