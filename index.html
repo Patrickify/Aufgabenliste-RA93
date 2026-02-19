@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f14" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="./manifest.json" />
   <link rel="stylesheet" href="./styles.css" />
   <title>RA 93 Pro</title>
 </head>
@@ -59,13 +62,18 @@
       </section>
 
       <section id="tasksTab" class="tab card">
-        <input id="tagSearch" class="search" placeholder="Suche Bereich..." />
+        <input id="tagSearch" class="search" placeholder="Bereich suchen..." />
         <div id="tagList" class="list"></div>
         <div class="divider"></div>
         <h2 id="openTagTitle">Bereich wählen</h2>
-        <div class="row"><select id="doneBySel" class="select" multiple size="3"></select></div>
-        <p id="taskHint" class="small muted"></p>
-        <button id="markSelectedDoneBtn" class="btn grow" style="margin-top:10px">✅ Erledigen</button>
+        
+        <div class="cardlite" style="margin-bottom:10px">
+          <p class="small muted">Wer hat die Aufgabe erledigt? (Mehrfachwahl)</p>
+          <div id="doneByCheckBoxes" class="grid2" style="max-height:150px; overflow-y:auto; border:1px solid #333; padding:10px; border-radius:8px;"></div>
+        </div>
+        
+        <p id="taskHint" class="small muted" style="color:var(--accent)"></p>
+        <button id="markSelectedDoneBtn" class="btn grow">✅ Erledigen</button>
         <div id="taskList" class="list"></div>
       </section>
 
@@ -86,11 +94,11 @@
 
       <section id="adminTab" class="tab card hidden">
         <section class="cardlite subtabs">
-          <button class="subtabbtn active" data-subtab="toolsSub">Kontrolle</button>
+          <button class="subtabbtn active" data-subtab="toolsSub">Endkontrolle</button>
           <button class="subtabbtn" data-subtab="statsSub">Punkte</button>
           <button class="subtabbtn" data-subtab="hygieneAdminSub">GD-Setup</button>
-          <button class="subtabbtn" data-subtab="planSub">Plan</button>
-          <button class="subtabbtn" data-subtab="employeesSub">Rollen</button>
+          <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
+          <button class="subtabbtn" data-subtab="employeesSub">Personal/Rollen</button>
         </section>
 
         <section id="toolsSub" class="subtab">
@@ -104,8 +112,8 @@
 
         <section id="statsSub" class="subtab hidden">
           <h3>Punkteübersicht</h3>
-          <table style="width: 100%;">
-            <thead><tr><th>Name</th><th>Aufg.</th><th>Fahrt</th><th>∑</th></tr></thead>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead><tr style="color:var(--accent); border-bottom:1px solid #333;"><th>Name</th><th>Aufg.</th><th>Fahrt</th><th>∑</th></tr></thead>
             <tbody id="pointsTableBody"></tbody>
           </table>
         </section>
@@ -118,18 +126,18 @@
           <h4>Neue Vorlage</h4>
           <select id="hygieneItemCatSel" class="select"></select>
           <input id="hygieneItemInp" class="input" placeholder="Aufgabentitel"/>
-          <textarea id="hygieneSubtasksInp" class="input" placeholder="Unterpunkte (einer pro Zeile)"></textarea>
+          <textarea id="hygieneSubtasksInp" class="input" placeholder="Checkliste: Pro Zeile ein Punkt"></textarea>
           <button id="hygieneItemAddBtn" class="btn grow">Vorlage speichern</button>
-          <div id="hygieneTemplateList" class="list"></div>
         </section>
 
         <section id="planSub" class="subtab hidden">
+          <h4>Wochenplan</h4>
           <div class="grid2">
             <select id="planDaySel" class="select"><option value="1">Mo</option><option value="2">Di</option><option value="3">Mi</option><option value="4">Do</option><option value="5">Fr</option><option value="6">Sa</option><option value="7">So</option></select>
             <select id="planTagSel" class="select"></select>
           </div>
           <input id="planTextInp" class="input" placeholder="Aufgabentext" />
-          <button id="planAddBtn" class="btn grow">Hinzufügen</button>
+          <button id="planAddBtn" class="btn grow">Speichern</button>
           <div id="planList" class="list"></div>
         </section>
 
