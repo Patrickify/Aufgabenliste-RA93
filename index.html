@@ -26,7 +26,7 @@
   <section id="loginView" class="container">
     <div class="card login-card">
       <h2>Anmeldung</h2>
-      <p class="muted">Bitte gib deinen Namen ein, um fortzufahren.</p>
+      <p class="muted">Bitte gib deinen Namen ein (nur registrierte Mitarbeiter).</p>
       <div class="grid" style="margin-top: 20px;">
         <label>Name 
           <input id="nameInp" type="text" class="input" placeholder="Vorname Nachname..." />
@@ -37,36 +37,31 @@
   </section>
 
   <div id="appView" class="main-layout hidden">
-    
     <nav id="sidebar" class="sidebar">
-      <div class="sidebar-header">Menü</div>
+      <div class="sidebar-header">Hauptmenü</div>
       <button class="tabbtn active" data-tab="tasksTab">📋 Aufgaben</button>
       <button class="tabbtn" data-tab="hygieneTab">🧹 Grunddesinfektion</button>
-      <button class="tabbtn" data-tab="ridesTab">🚗 Fahrten</button>
+      <button class="tabbtn" data-tab="ridesTab">🚗 Fahrtenbuch</button>
       <div class="divider"></div>
       <button class="tabbtn hidden" data-tab="adminTab" id="adminTabBtn">⚙️ Admin Bereich</button>
     </nav>
 
     <main class="container">
-      
       <section id="tasksTab" class="tab">
         <div class="card">
-          <h3>Aufgabenbereiche</h3>
+          <h3>Bereiche</h3>
           <input id="tagSearch" class="search" placeholder="Bereich suchen..." />
           <div id="tagList" class="list"></div>
         </div>
-
         <div class="divider"></div>
-
         <div class="card">
           <h2 id="openTagTitle">Bereich wählen</h2>
           <div class="cardlite">
-            <p class="small muted">Wer hat die Aufgabe erledigt?</p>
-            <div id="doneByCheckBoxes" class="checkbox-list">
-              </div>
+            <p class="small muted">Mitarbeiter für diese Aufgabe auswählen:</p>
+            <div id="doneByCheckBoxes" class="checkbox-list"></div>
           </div>
           <p id="taskHint" class="task-selection-hint"></p>
-          <button id="markSelectedDoneBtn" class="btn grow">✅ Als erledigt markieren</button>
+          <button id="markSelectedDoneBtn" class="btn grow">✅ Erledigt markieren</button>
           <div id="taskList" class="list" style="margin-top: 15px;"></div>
         </div>
       </section>
@@ -80,27 +75,28 @@
 
       <section id="ridesTab" class="tab hidden">
         <div class="card">
-          <h2>Fahrtenbuch</h2>
+          <h2>Fahrten (72h)</h2>
           <div class="grid2">
             <label>Fahrer <select id="rideNameSel" class="select"></select></label>
             <label>Einsatznr <input id="rideEinsatz" class="input" type="number" /></label>
           </div>
-          <button id="addRideBtn" class="btn grow">Fahrt speichern (+1 Pkt)</button>
+          <button id="saveRideBtn" class="btn grow">Fahrt speichern (+1 Pkt)</button>
           <div id="ridesList" class="list" style="margin-top:20px"></div>
         </div>
       </section>
 
       <section id="adminTab" class="tab hidden">
         <div class="card admin-nav">
-          <button class="subtabbtn active" data-subtab="toolsSub">Kontrolle</button>
+          <button class="subtabbtn active" data-subtab="toolsSub">Abnahmen</button>
           <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
+          <button class="subtabbtn" data-subtab="statsSub">Ranking</button>
         </div>
 
         <section id="toolsSub" class="subtab">
           <div class="card">
             <h4>📋 Offene Abnahmen</h4>
             <div id="finalListTasks" class="list"></div>
-            <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:20px">🛠️ Tag Reset</button>
+            <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:30px">🛠️ Tag Reset</button>
           </div>
         </section>
 
@@ -117,23 +113,32 @@
             </div>
             <div id="planList" class="list" style="margin-top:15px"></div>
             <div class="divider"></div>
-            <h4>Aufgabe hinzufügen</h4>
+            <h4>Neue Vorlage</h4>
             <input id="planTextInp" class="input" placeholder="Aufgabentext..." />
-            <button id="planAddBtn" class="btn grow">In Wochenplan speichern</button>
+            <button id="planAddBtn" class="btn grow">Speichern</button>
+          </div>
+        </section>
+
+        <section id="statsSub" class="subtab hidden">
+          <div class="card">
+            <h3>Punkte-Ranking</h3>
+            <table style="width:100%; text-align:left;">
+              <thead><tr><th>Name</th><th>Aufg.</th><th>Fahrten</th><th>Gesamt</th></tr></thead>
+              <tbody id="pointsTableBody"></tbody>
+            </table>
           </div>
         </section>
       </section>
-
     </main>
   </div>
 
   <div id="checkModal" class="modal hidden">
     <div class="modal-content card">
       <h3 id="modalTitle">Checkliste</h3>
-      <div id="modalSubtasks" class="list" style="margin: 15px 0;"></div>
+      <div id="modalSubtasks" class="list"></div>
       <div class="row">
-        <button id="closeModalBtn" class="btn ghost">Abbrechen</button>
-        <button id="saveCheckBtn" class="btn grow">Fertig</button>
+        <button id="closeModalBtn" class="btn ghost">Abbruch</button>
+        <button id="saveCheckBtn" class="btn grow">Abschließen</button>
       </div>
     </div>
   </div>
