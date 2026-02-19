@@ -42,16 +42,13 @@
       <h2>Anmeldung</h2>
       <p class="muted">Bitte gib deinen Namen ein.</p>
       <div class="grid" style="margin-top: 20px;">
-        <label>Name 
-          <input id="nameInp" type="text" class="input" placeholder="Vorname Nachname..." />
-        </label>
+        <label>Name <input id="nameInp" type="text" class="input" placeholder="Vorname Nachname..." /></label>
       </div>
       <button id="loginBtn" class="btn grow" style="margin-top:20px">Starten</button>
     </div>
   </section>
 
   <div id="appView" class="main-layout hidden">
-    
     <nav id="sidebar" class="sidebar">
       <div class="sidebar-header">Hauptmenü</div>
       <button class="tabbtn active" data-tab="tasksTab">📋 Aufgaben</button>
@@ -62,7 +59,6 @@
     </nav>
 
     <main class="container">
-      
       <section id="tasksTab" class="tab">
         <div class="card">
           <h3>Bereiche</h3>
@@ -119,8 +115,14 @@
             <button id="addExtraTaskBtn" class="btn grow">Heute hinzufügen</button>
           </div>
           <div class="card">
-            <h4>📋 Offene Abnahmen</h4>
+            <h4>📋 Offene Abnahmen (Aufgaben)</h4>
             <div id="finalListTasks" class="list"></div>
+            
+            <div class="divider"></div>
+            
+            <h4>🧹 Offene Abnahmen (GD)</h4>
+            <div id="finalListHygiene" class="list"></div>
+            
             <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:30px">🛠️ Tag Reset (Daten für heute neu laden)</button>
           </div>
         </section>
@@ -160,19 +162,16 @@
             <div class="row"><input id="tagAddInp" class="input" placeholder="z.B. RTW 1"/><button id="tagAddBtn" class="btn ghost">+</button></div>
             <div id="adminTagList" class="list"></div>
           </div>
-          
           <div class="card">
             <h4>2. Mitarbeiter Liste</h4>
             <div class="row"><input id="empAdd" class="input" placeholder="Neuer Name"/><button id="empAddBtn" class="btn ghost">+</button></div>
             <div id="empList" class="list"></div>
           </div>
-
           <div class="card">
             <h4>3. Admin Rechte vergeben</h4>
             <div class="row"><input id="adminUidAdd" class="input" placeholder="Name für Admin"/><button id="adminUidAddBtn" class="btn ghost">Admin +</button></div>
             <div class="row"><input id="superUidAdd" class="input" placeholder="Name für Superadmin"/><button id="superUidAddBtn" class="btn ghost">Super +</button></div>
           </div>
-
           <div class="card">
             <h4>4. Hygiene Kategorien & Vorlagen</h4>
             <div class="row"><input id="hygieneCatInp" class="input" placeholder="Neue Kategorie..."/><button id="hygieneCatAddBtn" class="btn ghost">+</button></div>
@@ -185,7 +184,6 @@
             <button id="hygieneItemAddBtn" class="btn grow">Vorlage speichern</button>
           </div>
         </section>
-
       </section>
     </main>
   </div>
