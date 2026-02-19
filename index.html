@@ -177,13 +177,13 @@
         <section id="setupSub" class="subtab hidden">
           
           <div class="card">
-            <h4>1. Punkte manuell bearbeiten</h4>
-            <select id="editPointsUserSel" class="select"></select>
+            <h4>1. Globale Punkteänderung (Reset)</h4>
+            <p class="small muted">Setzt die Punkte für <b>ALLE</b> Mitarbeiter gleichzeitig auf den eingegebenen Wert.</p>
             <div class="grid2">
-              <label>Aufgaben (Pkte) <input id="editTasksInp" type="number" class="input" /></label>
-              <label>Fahrten (Pkte) <input id="editRidesInp" type="number" class="input" /></label>
+              <label>Aufgaben (Pkte) <input id="editTasksInp" type="number" class="input" value="0" /></label>
+              <label>Fahrten (Pkte) <input id="editRidesInp" type="number" class="input" value="0" /></label>
             </div>
-            <button id="savePointsBtn" class="btn grow">Punkte überschreiben</button>
+            <button id="savePointsBtn" class="btn danger">Punkte für ALLE überschreiben</button>
           </div>
 
           <div class="card">
@@ -199,7 +199,8 @@
           </div>
 
           <div class="card">
-            <h4>4. Admin Rechte vergeben</h4>
+            <h4>4. Rollen / Rechte vergeben</h4>
+            <div class="row"><input id="dlUidAdd" class="input" placeholder="Name für Dienststellenleitung"/><button id="dlUidAddBtn" class="btn ghost">Leitung +</button></div>
             <div class="row"><input id="adminUidAdd" class="input" placeholder="Name für Admin"/><button id="adminUidAddBtn" class="btn ghost">Admin +</button></div>
             <div class="row"><input id="superUidAdd" class="input" placeholder="Name für Superadmin"/><button id="superUidAddBtn" class="btn ghost">Super +</button></div>
           </div>
@@ -215,6 +216,17 @@
             <textarea id="hygieneSubtasksInp" class="input" placeholder="Checkliste: Pro Zeile ein Punkt" style="height: 100px;"></textarea>
             <button id="hygieneItemAddBtn" class="btn grow">Vorlage speichern</button>
           </div>
+
+          <div class="card">
+            <h4>6. Punkte-System konfigurieren</h4>
+            <p class="small muted">Wie viele Punkte bringt eine Aufgabe oder eine Fahrt bei der Abnahme?</p>
+            <div class="grid2">
+              <label>Punkte pro Aufgabe <input id="configTaskPoints" type="number" class="input" value="1" /></label>
+              <label>Punkte pro Fahrt <input id="configRidePoints" type="number" class="input" value="1" /></label>
+            </div>
+            <button id="saveConfigPointsBtn" class="btn grow">Werte speichern</button>
+          </div>
+
         </section>
 
       </section>
