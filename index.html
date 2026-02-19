@@ -18,15 +18,29 @@
     </div>
     <div class="top-right">
       <span id="whoami" class="who">—</span>
+      <button id="settingsBtn" class="btn ghost">⚙️</button>
       <button id="reloadBtn" class="btn ghost">↻</button>
       <button id="logoutBtn" class="btn ghost">Logout</button>
     </div>
   </header>
 
+  <section id="settingsCard" class="modal hidden">
+    <div class="modal-content card">
+      <div class="row between"><h3>Einstellungen</h3><button id="closeSettingsBtn" class="btn ghost">X</button></div>
+      <div class="divider"></div>
+      <h4>🌴 Urlaubsmodus (Push stummschalten)</h4>
+      <input id="muteUntilInp" class="input" type="number" placeholder="Datum z.B. 20260520" />
+      <div class="row">
+        <button id="saveMuteBtn" class="btn grow">Speichern</button>
+        <button id="clearMuteBtn" class="btn danger">Beenden</button>
+      </div>
+    </div>
+  </section>
+
   <section id="loginView" class="container">
     <div class="card login-card">
       <h2>Anmeldung</h2>
-      <p class="muted">Bitte gib deinen Namen ein (nur registrierte Mitarbeiter).</p>
+      <p class="muted">Bitte gib deinen Namen ein.</p>
       <div class="grid" style="margin-top: 20px;">
         <label>Name 
           <input id="nameInp" type="text" class="input" placeholder="Vorname Nachname..." />
@@ -37,6 +51,7 @@
   </section>
 
   <div id="appView" class="main-layout hidden">
+    
     <nav id="sidebar" class="sidebar">
       <div class="sidebar-header">Hauptmenü</div>
       <button class="tabbtn active" data-tab="tasksTab">📋 Aufgaben</button>
@@ -47,6 +62,7 @@
     </nav>
 
     <main class="container">
+      
       <section id="tasksTab" class="tab">
         <div class="card">
           <h3>Bereiche</h3>
@@ -90,13 +106,22 @@
           <button class="subtabbtn active" data-subtab="toolsSub">Abnahmen</button>
           <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
           <button class="subtabbtn" data-subtab="statsSub">Ranking</button>
+          <button class="subtabbtn" data-subtab="setupSub">System</button>
         </div>
 
         <section id="toolsSub" class="subtab">
           <div class="card">
+            <h4>➕ Zusatztagesaufgabe (Nur für heute)</h4>
+            <div class="grid2">
+              <select id="extraTaskTagSel" class="select"></select>
+              <input id="extraTaskInp" class="input" placeholder="Was ist heute zu tun?" />
+            </div>
+            <button id="addExtraTaskBtn" class="btn grow">Heute hinzufügen</button>
+          </div>
+          <div class="card">
             <h4>📋 Offene Abnahmen</h4>
             <div id="finalListTasks" class="list"></div>
-            <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:30px">🛠️ Tag Reset</button>
+            <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:30px">🛠️ Tag Reset (Daten für heute neu laden)</button>
           </div>
         </section>
 
@@ -113,7 +138,7 @@
             </div>
             <div id="planList" class="list" style="margin-top:15px"></div>
             <div class="divider"></div>
-            <h4>Neue Vorlage</h4>
+            <h4>Neue Vorlage für diesen Tag & Bereich</h4>
             <input id="planTextInp" class="input" placeholder="Aufgabentext..." />
             <button id="planAddBtn" class="btn grow">Speichern</button>
           </div>
@@ -128,6 +153,39 @@
             </table>
           </div>
         </section>
+
+        <section id="setupSub" class="subtab hidden">
+          <div class="card">
+            <h4>1. Bereiche (Tags)</h4>
+            <div class="row"><input id="tagAddInp" class="input" placeholder="z.B. RTW 1"/><button id="tagAddBtn" class="btn ghost">+</button></div>
+            <div id="adminTagList" class="list"></div>
+          </div>
+          
+          <div class="card">
+            <h4>2. Mitarbeiter Liste</h4>
+            <div class="row"><input id="empAdd" class="input" placeholder="Neuer Name"/><button id="empAddBtn" class="btn ghost">+</button></div>
+            <div id="empList" class="list"></div>
+          </div>
+
+          <div class="card">
+            <h4>3. Admin Rechte vergeben</h4>
+            <div class="row"><input id="adminUidAdd" class="input" placeholder="Name für Admin"/><button id="adminUidAddBtn" class="btn ghost">Admin +</button></div>
+            <div class="row"><input id="superUidAdd" class="input" placeholder="Name für Superadmin"/><button id="superUidAddBtn" class="btn ghost">Super +</button></div>
+          </div>
+
+          <div class="card">
+            <h4>4. Hygiene Kategorien & Vorlagen</h4>
+            <div class="row"><input id="hygieneCatInp" class="input" placeholder="Neue Kategorie..."/><button id="hygieneCatAddBtn" class="btn ghost">+</button></div>
+            <div id="hygieneCatList" class="list"></div>
+            <div class="divider"></div>
+            <p class="small muted">Neue Vorlage erstellen</p>
+            <select id="hygieneItemCatSel" class="select"></select>
+            <input id="hygieneItemInp" class="input" placeholder="Name (z.B. RTW desinfizieren)"/>
+            <textarea id="hygieneSubtasksInp" class="input" placeholder="Checkliste: Pro Zeile ein Punkt" style="height: 100px;"></textarea>
+            <button id="hygieneItemAddBtn" class="btn grow">Vorlage speichern</button>
+          </div>
+        </section>
+
       </section>
     </main>
   </div>
