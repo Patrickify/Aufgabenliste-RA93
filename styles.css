@@ -1,4 +1,5 @@
 :root {
+  /* Farben */
   --bg: #0b0f14;
   --card: #111827;
   --muted: #9ca3af;
@@ -6,8 +7,11 @@
   --line: #1f2937;
   --accent: #2563eb;
   --danger: #ef4444;
+  
+  /* Layout */
   --sidebar-width: 260px;
   
+  /* Safe Area Variablen für sauberes Padding auf iPhones */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
@@ -16,21 +20,55 @@
 
 * { box-sizing: border-box; }
 
+/* WICHTIG FÜR IPHONE: Verhindert das Wackeln des gesamten Screens */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
-  overflow-x: hidden; 
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
 }
 
 /* =============================
-   LAYOUT STRUKTUR (SIDEBAR)
+   HEADER / TOPBAR
+   ============================= */
+.topbar {
+  height: 60px;
+  min-height: 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 max(16px, var(--safe-left)) 0 max(16px, var(--safe-right));
+  background: rgba(11, 15, 20, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  z-index: 1000;
+}
+
+.top-left { display: flex; align-items: center; gap: 15px; }
+.top-right { display: flex; gap: 10px; align-items: center; }
+
+.brand { font-weight: 700; font-size: 1.1rem; white-space: nowrap; }
+.who { color: var(--muted); font-size: 0.8rem; text-align: right; line-height: 1.2; }
+
+/* =============================
+   LAYOUT STRUKTUR (SIDEBAR & CONTENT)
    ============================= */
 .main-layout {
   display: flex;
-  min-height: 100vh;
-  padding-top: 60px; /* Platz für Topbar */
+  flex: 1;
+  height: calc(100% - 60px); /* Restlicher Platz unter der Topbar */
+  overflow: hidden;
 }
 
 .sidebar {
@@ -40,11 +78,9 @@ body {
   display: flex;
   flex-direction: column;
   padding: 20px 15px;
-  gap: 10px;
-  position: sticky;
-  top: 60px;
-  height: calc(100vh - 60px);
-  transition: transform 0.3s ease-in-out;
+  gap: 8px;
+  overflow-y: auto;
+  transition: transform 0.3s ease;
   z-index: 900;
 }
 
@@ -57,56 +93,85 @@ body {
   padding-left: 10px;
 }
 
+/* Scrollbarer Content-Bereich */
+.container {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* Sanftes Scrollen auf iOS */
+  padding: 20px max(16px, var(--safe-right)) 100px max(16px, var(--safe-left));
+}
+
 /* Sidebar Mobil-Modus */
 @media (max-width: 768px) {
   .sidebar {
-    position: fixed;
+    position: absolute;
     left: 0;
-    transform: translateX(-100%);
+    top: 0;
+    bottom: 0;
+    transform: translateX(-100%); /* Aus dem Bild geschoben */
     box-shadow: 10px 0 20px rgba(0,0,0,0.5);
   }
   .sidebar.open {
-    transform: translateX(0);
+    transform: translateX(0); /* Ins Bild geschoben */
   }
 }
 
 /* =============================
-   HEADER / TOPBAR
+   CARDS & CONTAINERS
    ============================= */
-.topbar {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 60px;
-  z-index: 1000;
-  background: rgba(11, 15, 20, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 16px;
-}
-
-.top-left { display: flex; align-items: center; gap: 15px; }
-.top-right { display: flex; gap: 10px; align-items: center; }
-
-/* =============================
-   COMPONENTS (CARDS & BUTTONS)
-   ============================= */
-.container {
-  flex: 1;
-  max-width: 1000px;
-  padding: 20px;
-  margin: 0 auto;
-}
-
 .card {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
+
+.cardlite {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.login-card {
+  max-width: 400px;
+  margin: 40px auto;
+}
+
+/* =============================
+   TYPOGRAPHY & UTILS
+   ============================= */
+h2, h3, h4 { margin: 0 0 10px 0; font-weight: 600; }
+p { margin: 0 0 10px 0; line-height: 1.5; }
+
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.hidden { display: none !important; }
+
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
+.grid2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.divider { height: 1px; background: var(--line); margin: 16px 0; }
+
+/* =============================
+   FORMS & BUTTONS
+   ============================= */
+input, select, textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #0b1220;
+  color: var(--text);
+  padding: 12px;
+  font-size: 1rem; /* Verhindert Auto-Zoom auf iOS */
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 5px;
+}
+input:focus, select:focus { border-color: var(--accent); }
 
 .btn {
   border: none;
@@ -116,95 +181,140 @@ body {
   border-radius: 10px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.2s;
+  font-size: 0.95rem;
+  transition: opacity 0.2s, transform 0.1s;
+  text-align: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-
-.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
-.btn.danger { background: var(--danger); }
+.btn:active { opacity: 0.7; transform: scale(0.98); }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.btn.danger { background: var(--danger); color: white; border: none; }
 .btn.grow { width: 100%; display: flex; }
 
-/* Navigation Buttons (Sidebar) */
+/* Navigation Buttons (Sidebar & Admin Tabs) */
 .tabbtn {
   width: 100%;
   text-align: left;
   background: transparent;
   border: 1px solid transparent;
   color: var(--muted);
-  padding: 12px 15px;
+  padding: 14px 15px;
   border-radius: 10px;
   cursor: pointer;
   font-size: 1rem;
-  transition: 0.2s;
+  font-weight: 500;
+  transition: all 0.2s;
 }
-
 .tabbtn:hover { background: rgba(255,255,255,0.05); }
-
 .tabbtn.active {
   background: var(--accent);
   color: white;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-/* =============================
-   FORMS
-   ============================= */
-input, select, textarea {
-  width: 100%;
-  border-radius: 10px;
+/* Admin Sub-Navigation */
+.admin-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px; }
+.subtabbtn {
+  flex: 1;
+  background: transparent;
   border: 1px solid var(--line);
-  background: #0b1220;
-  color: var(--text);
-  padding: 12px;
-  outline: none;
-  margin-bottom: 10px;
+  color: var(--muted);
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 600;
+}
+.subtabbtn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* =============================
+   LISTS & CHECKBOXES
+   ============================= */
+.list { display: flex; flex-direction: column; gap: 8px; }
+
+.item {
+  display: flex; justify-content: space-between; align-items: center;
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; background: #0b1220; gap: 10px;
 }
 
-/* Spezial-Liste für Checkboxen */
+/* Spezial-Liste für Checkboxen (z.B. Mitarbeiterauswahl & Hygiene) */
 .checkbox-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
   background: #0b1220;
-  padding: 12px;
-  border-radius: 12px;
+  padding: 10px;
+  border-radius: 10px;
   border: 1px solid var(--line);
-  margin-top: 10px;
+  max-height: 250px;
+  overflow-y: auto;
 }
 
 .check-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px;
+  padding: 12px;
   background: var(--card);
   border-radius: 8px;
   cursor: pointer;
+  border: 1px solid transparent;
+  transition: border 0.2s;
+}
+.check-item:hover { border-color: var(--line); }
+.check-item input[type="checkbox"] { 
+  width: 22px; 
+  height: 22px; 
+  margin: 0; 
+  accent-color: var(--accent); /* Färbt die Checkbox blau auf modernen Browsern */
 }
 
-.check-item input { width: 22px; height: 22px; margin: 0; }
+.task-selection-hint {
+  color: var(--accent);
+  font-weight: bold;
+  font-size: 0.9rem;
+  margin: 10px 0;
+  text-align: center;
+}
 
 /* =============================
-   UTILS
+   MODAL (HYGIENE CHECKLISTE)
    ============================= */
-.list { display: flex; flex-direction: column; gap: 8px; }
-.item {
-  display: flex; justify-content: space-between; align-items: center;
-  border: 1px solid var(--line); border-radius: 12px;
-  padding: 12px; background: #0b1220;
-}
-
-.hidden { display: none !important; }
-.divider { height: 1px; background: var(--line); margin: 20px 0; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-/* Modal */
 .modal {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.8); z-index: 2000;
+  background: rgba(0,0,0,0.8);
+  z-index: 2000;
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
+  backdrop-filter: blur(5px);
 }
-.modal-content { width: 100%; max-width: 500px; }
+
+.modal-content {
+  width: 100%; 
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* =============================
+   TABELLEN (RANKING)
+   ============================= */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+th {
+  text-align: left;
+  padding: 10px;
+  color: var(--muted);
+  border-bottom: 2px solid var(--line);
+  font-size: 0.9rem;
+}
+td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+}
