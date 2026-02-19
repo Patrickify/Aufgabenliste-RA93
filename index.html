@@ -28,11 +28,9 @@
     <div class="modal-content card">
       <div class="row between"><h3>Einstellungen</h3><button id="closeSettingsBtn" class="btn ghost">X</button></div>
       <div class="divider"></div>
-      
       <h4>🔔 Benachrichtigungen</h4>
       <p class="small muted">Damit Erinnerungen ankommen, musst du sie hier im Browser einmalig erlauben.</p>
       <button id="reqPushBtn" class="btn ghost" style="width:100%; margin-bottom: 20px;">Push-Benachrichtigungen aktivieren</button>
-
       <h4>🌴 Urlaubsmodus (Push stummschalten)</h4>
       <input id="muteUntilInp" class="input" type="number" placeholder="Datum z.B. 20260520" />
       <div class="row">
@@ -62,6 +60,9 @@
       <button class="tabbtn" data-tab="hygieneTab">🧹 Grunddesinfektion</button>
       <button class="tabbtn" data-tab="ridesTab">🚗 Fahrtenbuch</button>
       <div class="divider"></div>
+      
+      <button class="tabbtn hidden" data-tab="ticketTab" id="ticketTabBtn">🎫 Ticketsystem</button>
+      
       <button class="tabbtn hidden" data-tab="adminTab" id="adminTabBtn">⚙️ Admin Bereich</button>
     </nav>
 
@@ -106,6 +107,62 @@
         </div>
       </section>
 
+      <section id="ticketTab" class="tab hidden">
+        <div class="card admin-nav">
+          <button class="subtabbtn active" data-subtab="ticketDashSub">Dashboard</button>
+          <button class="subtabbtn" data-subtab="ticketMySub">Meine Tickets</button>
+          <button class="subtabbtn" data-subtab="ticketCreateSub">Neues Ticket</button>
+          <button class="subtabbtn" data-subtab="ticketSetupSub">Ticket Setup</button>
+        </div>
+
+        <section id="ticketDashSub" class="subtab">
+          <div class="card">
+            <h3>Pinnwand / News</h3>
+            <div class="row"><input id="newsAddInp" class="input" placeholder="Wichtige Info für alle Führungskräfte..."/><button id="newsAddBtn" class="btn ghost">Senden</button></div>
+            <div id="newsList" class="list" style="margin-top:15px; max-height:200px; overflow-y:auto;"></div>
+          </div>
+          <div class="card">
+            <h3>Öffentliche Tickets</h3>
+            <p class="small muted">Tickets, die vom Zuständigen für alle als sichtbar markiert wurden.</p>
+            <div id="publicTicketList" class="list"></div>
+          </div>
+        </section>
+
+        <section id="ticketMySub" class="subtab hidden">
+          <div class="card">
+            <h3>Aktive Tickets</h3>
+            <p class="small muted">Tickets, die du erstellt hast oder die dir zugewiesen wurden.</p>
+            <div id="myTicketList" class="list"></div>
+          </div>
+          <div class="card">
+            <h3>Archiv (Erledigt)</h3>
+            <div id="archivedTicketList" class="list"></div>
+          </div>
+        </section>
+
+        <section id="ticketCreateSub" class="subtab hidden">
+          <div class="card">
+            <h3>Neues Ticket einstellen</h3>
+            <label>Aufgabengebiet <select id="newTicketCatSel" class="select"></select></label>
+            <label>Titel / Problem <input id="newTicketTitleInp" type="text" class="input" placeholder="Kurze Beschreibung" /></label>
+            <label>Details <textarea id="newTicketDescInp" class="input" placeholder="Was genau wird benötigt?" style="height:100px;"></textarea></label>
+            <button id="createTicketBtn" class="btn grow">Ticket erstellen</button>
+          </div>
+        </section>
+
+        <section id="ticketSetupSub" class="subtab hidden">
+          <div class="card">
+            <h3>Kategorie erstellen</h3>
+            <div class="grid2">
+              <input id="ticketCatNameInp" class="input" placeholder="Name (z.B. IT, Material)"/>
+              <select id="ticketCatAssigneeSel" class="select"></select>
+            </div>
+            <button id="ticketCatAddBtn" class="btn grow" style="margin-top:10px;">Aufgabengebiet speichern</button>
+            <div id="ticketCatList" class="list" style="margin-top:15px;"></div>
+          </div>
+        </section>
+      </section>
+
       <section id="adminTab" class="tab hidden">
         <div class="card admin-nav">
           <button class="subtabbtn active" data-subtab="toolsSub">Abnahmen</button>
@@ -123,21 +180,15 @@
             </div>
             <button id="addExtraTaskBtn" class="btn grow">Heute hinzufügen</button>
           </div>
-          
           <div class="card">
             <h4>🚗 Offene Abnahmen (Fahrten)</h4>
             <div id="finalListRides" class="list"></div>
-
             <div class="divider"></div>
-
             <h4>📋 Offene Abnahmen (Aufgaben)</h4>
             <div id="finalListTasks" class="list"></div>
-            
             <div class="divider"></div>
-            
             <h4>🧹 Offene Abnahmen (GD)</h4>
             <div id="finalListHygiene" class="list"></div>
-            
             <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:30px">🛠️ Tag Reset (Daten für heute neu laden)</button>
           </div>
         </section>
@@ -175,7 +226,6 @@
         </section>
 
         <section id="setupSub" class="subtab hidden">
-          
           <div class="card">
             <h4>1. Globale Punkteänderung (Reset)</h4>
             <p class="small muted">Setzt die Punkte für <b>ALLE</b> Mitarbeiter gleichzeitig auf den eingegebenen Wert.</p>
@@ -203,6 +253,10 @@
             <div class="row"><input id="dlUidAdd" class="input" placeholder="Name für Dienststellenleitung"/><button id="dlUidAddBtn" class="btn ghost">Leitung +</button></div>
             <div class="row"><input id="adminUidAdd" class="input" placeholder="Name für Admin"/><button id="adminUidAddBtn" class="btn ghost">Admin +</button></div>
             <div class="row"><input id="superUidAdd" class="input" placeholder="Name für Superadmin"/><button id="superUidAddBtn" class="btn ghost">Super +</button></div>
+            <div class="divider"></div>
+            <p class="small muted">Neue Rollen (Zusatzinformation)</p>
+            <div class="row"><input id="eaUidAdd" class="input" placeholder="Name für Ehrenamtlich"/><button id="eaUidAddBtn" class="btn ghost">EA +</button></div>
+            <div class="row"><input id="ziviUidAdd" class="input" placeholder="Name für Zivildiener"/><button id="ziviUidAddBtn" class="btn ghost">Zivi +</button></div>
           </div>
 
           <div class="card">
@@ -226,7 +280,6 @@
             </div>
             <button id="saveConfigPointsBtn" class="btn grow">Werte speichern</button>
           </div>
-
         </section>
 
       </section>
@@ -241,6 +294,25 @@
         <button id="closeModalBtn" class="btn ghost">Abbruch</button>
         <button id="saveCheckBtn" class="btn grow">Abschließen</button>
       </div>
+    </div>
+  </div>
+
+  <div id="ticketModal" class="modal hidden">
+    <div class="modal-content card">
+      <h3 id="ticketModalTitle">Ticket Bearbeiten</h3>
+      <p id="ticketModalDesc" class="small muted" style="margin-bottom:15px;"></p>
+      
+      <div id="ticketModalComments" class="list" style="max-height:150px; overflow-y:auto; margin-bottom:15px; border:1px solid var(--line); padding:10px; border-radius:8px;"></div>
+      
+      <input id="ticketCommentInp" class="input" placeholder="Dein Kommentar oder Lösungsnotiz..." />
+      <div class="row">
+        <button id="ticketAddCommentBtn" class="btn ghost">💬 Kommentieren</button>
+        <button id="ticketTogglePublicBtn" class="btn ghost" style="flex:1;">👁️ Sichtbarkeit umstellen</button>
+      </div>
+      
+      <div class="divider"></div>
+      <button id="ticketCloseBtn" class="btn danger grow">Ticket mit Lösungsnotiz schließen</button>
+      <button id="closeTicketModalBtn" class="btn ghost grow" style="margin-top:10px;">Schließen</button>
     </div>
   </div>
 
