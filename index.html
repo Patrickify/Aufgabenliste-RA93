@@ -58,7 +58,7 @@
     <nav id="sidebar" class="sidebar">
       <div class="sidebar-header">Hauptmenü</div>
       <button class="tabbtn active" data-tab="tasksTab">📋 Aufgaben</button>
-      <button class="tabbtn" data-tab="hygieneTab">🧹 Grunddesinfektion</button>
+      <button class="tabbtn" data-tab="hygieneTab">🧹 Hygiene</button>
       <button class="tabbtn" data-tab="ridesTab">🚗 Fahrtenbuch</button>
       <div class="divider"></div>
       <button class="tabbtn hidden" data-tab="adminTab" id="adminTabBtn">⚙️ Admin Bereich</button>
@@ -101,7 +101,7 @@
             <label>Fahrer <select id="rideNameSel" class="select"></select></label>
             <label>Einsatznr <input id="rideEinsatz" class="input" type="number" /></label>
           </div>
-          <button id="saveRideBtn" class="btn grow">Fahrt speichern (+1 Pkt)</button>
+          <button id="saveRideBtn" class="btn grow">Fahrt speichern</button>
           <div id="ridesList" class="list" style="margin-top:20px"></div>
         </div>
       </section>
@@ -129,7 +129,7 @@
             
             <div class="divider"></div>
             
-            <h4>🧹 Offene Abnahmen (GD)</h4>
+            <h4>🧹 Offene Abnahmen (Hygiene)</h4>
             <div id="finalListHygiene" class="list"></div>
             
             <button id="regenTestBtn" class="btn danger" style="width:100%; margin-top:30px">🛠️ Tag Reset (Daten für heute neu laden)</button>
