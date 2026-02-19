@@ -16,9 +16,12 @@ const auth = getAuth(app);
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 let meName = localStorage.getItem("meName") || "", meKey = localStorage.getItem("meKey") || "";
-let isAdmin = false, isSuperAdmin = false, myMuteUntil = "";
+let isAdmin = false, isSuperAdmin = false, isDienststellenleitung = false, myMuteUntil = "";
 let tags = [], employees = [], hygieneCats = [];
 let selectedTaskId = "", activeCheckTaskId = null;
+
+// NEU: Globale Punkte-Werte (Standard = 1)
+let globalTaskPoints = 1, globalRidePoints = 1;
 
 const $ = (id) => document.getElementById(id);
 const show = (el, on) => el && el.classList.toggle("hidden", !on);
@@ -35,12 +38,26 @@ onAuthStateChanged(auth, async user => {
   if (user && meKey) {
     const uRef = doc(db, "users", user.uid);
     await setDoc(uRef, { name: meName, nameKey: meKey }, { merge: true });
-    const [sSnap, aSnap, uSnap] = await Promise.all([ getDoc(doc(db, "superadmins_by_name", meKey)), getDoc(doc(db, "admins_by_name", meKey)), getDoc(uRef) ]);
+    const [sSnap, aSnap, dlSnap, uSnap] = await Promise.all([ 
+      getDoc(doc(db, "superadmins_by_name", meKey)), 
+      getDoc(doc(db, "admins_by_name", meKey)), 
+      getDoc(doc(db, "dienststellenleitung_by_name", meKey)),
+      getDoc(uRef) 
+    ]);
     if(uSnap.exists()) myMuteUntil = uSnap.data().muteUntil || "";
+    
     isSuperAdmin = sSnap.exists() && sSnap.data()?.enabled === true;
-    isAdmin = isSuperAdmin || (aSnap.exists() && aSnap.data()?.enabled === true);
-    if($("whoami")) $("whoami").textContent = meName + (isSuperAdmin ? " (S)" : isAdmin ? " (A)" : "");
+    isDienststellenleitung = dlSnap.exists() && dlSnap.data()?.enabled === true;
+    isAdmin = isSuperAdmin || isDienststellenleitung || (aSnap.exists() && aSnap.data()?.enabled === true);
+    
+    let roleMarker = "";
+    if (isSuperAdmin) roleMarker = " (S)";
+    else if (isDienststellenleitung) roleMarker = " (D)";
+    else if (isAdmin) roleMarker = " (A)";
+
+    if($("whoami")) $("whoami").textContent = meName + roleMarker;
     show($("adminTabBtn"), isAdmin); show($("loginView"), false); show($("appView"), true);
+    
     initAppDataStreams();
     if (isAdmin) { initAdminLogic(); runDayChange(); initPushSystem(); }
   } else { show($("loginView"), true); show($("appView"), false); }
@@ -60,12 +77,21 @@ if($("loginBtn")) $("loginBtn").onclick = async () => {
 };
 
 function initAppDataStreams() {
+  // Synchronisiere die globalen Punkte-Werte
+  onSnapshot(doc(db, "meta", "settings"), d => {
+    if(d.exists()) {
+      globalTaskPoints = d.data().taskPoints ?? 1;
+      globalRidePoints = d.data().ridePoints ?? 1;
+      if($("configTaskPoints")) $("configTaskPoints").value = globalTaskPoints;
+      if($("configRidePoints")) $("configRidePoints").value = globalRidePoints;
+    }
+  });
+
   onSnapshot(query(collection(db, "employees"), orderBy("name")), s => {
     employees = s.docs.map(d => d.data());
     if($("doneByCheckBoxes")) $("doneByCheckBoxes").innerHTML = employees.map(e => `<label class="check-item"><input type="checkbox" name="worker" value="${esc(e.name)}"> <span>${esc(e.name)}</span></label>`).join("");
     if($("rideNameSel")) $("rideNameSel").innerHTML = employees.map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join("");
     if(isAdmin && $("empList")) $("empList").innerHTML = employees.map(e => `<div class="item"><span>${esc(e.name)}</span><button class="btn danger" onclick="window.delDoc('employees','${keyOfName(e.name)}')">X</button></div>`).join("");
-    if(isAdmin && $("editPointsUserSel")) $("editPointsUserSel").innerHTML = `<option value="">Mitarbeiter wählen...</option>` + employees.map(e => `<option value="${keyOfName(e.name)}">${esc(e.name)}</option>`).join("");
   });
   
   onSnapshot(query(collection(db, "tags"), orderBy("tagId")), s => {
@@ -114,7 +140,6 @@ if($("markSelectedDoneBtn")) $("markSelectedDoneBtn").onclick = async () => {
 };
 
 function initAdminLogic() {
-  // Wochenplan Filter
   const updatePlanFilter = () => {
     if(!$("planDaySel") || !$("planTagSel")) return;
     const d = Number($("planDaySel").value), t = $("planTagSel").value;
@@ -125,7 +150,6 @@ function initAdminLogic() {
   if($("planDaySel")) $("planDaySel").onchange = updatePlanFilter;
   if($("planTagSel")) $("planTagSel").onchange = updatePlanFilter; updatePlanFilter();
 
-  // Abnahme Aufgaben & Hygiene
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("status", "==", "done")), s => {
     const tH = [], hH = [];
     s.docs.forEach(d => {
@@ -137,12 +161,10 @@ function initAdminLogic() {
     if($("finalListHygiene")) $("finalListHygiene").innerHTML = hH.join("");
   });
 
-  // Abnahme Fahrten
   onSnapshot(query(collection(db, "rides"), where("status", "==", "open")), s => {
     if($("finalListRides")) $("finalListRides").innerHTML = s.docs.map(d => `<div class="item"><span>🚗 ${esc(d.data().name)} (${esc(d.data().einsatz)})</span><div class="row"><button class="btn danger" onclick="window.rejectRide('${d.id}')">❌</button><button class="btn ghost" onclick="window.finalCheckRide('${d.id}', '${keyOfName(d.data().name)}')">OK</button></div></div>`).join("");
   });
 
-  // Ranking Rendering
   onSnapshot(collection(db, "points_tasks"), st => onSnapshot(collection(db, "points_rides"), sr => renderPointsTable(st, sr)));
 }
 
@@ -170,7 +192,6 @@ function initPushSystem() {
   if($("settingsBtn")) $("settingsBtn").onclick = () => show($("settingsCard"), true);
   if($("closeSettingsBtn")) $("closeSettingsBtn").onclick = () => show($("settingsCard"), false);
   
-  // PUSH ERLAUBNIS ANFRAGEN
   if($("reqPushBtn")) $("reqPushBtn").onclick = () => {
     Notification.requestPermission().then(p => { alert(p === "granted" ? "Benachrichtigungen aktiviert!" : "Zugriff blockiert."); });
   };
@@ -202,16 +223,46 @@ function setupTabs(btnClass, tabClass) {
 }
 setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
 
-// --- ADMIN FEATURES & BUTTONS --- //
+/* --- ADMIN FEATURES --- */
+
+// KONFIGURIERE GLOBALE PUNKTE (Feature)
+if($("saveConfigPointsBtn")) $("saveConfigPointsBtn").onclick = async () => {
+  if(!isAdmin) return;
+  const t = Number($("configTaskPoints").value) || 1;
+  const r = Number($("configRidePoints").value) || 1;
+  await setDoc(doc(db, "meta", "settings"), { taskPoints: t, ridePoints: r }, { merge: true });
+  alert(`Konfiguration gespeichert! Aufgabe = ${t} Pkt, Fahrt = ${r} Pkt.`);
+};
+
 if($("addExtraTaskBtn")) $("addExtraTaskBtn").onclick = async () => {
   const text = n($("extraTaskInp").value), tagKey = $("extraTaskTagSel").value; if(!text || !tagKey) return;
   await addDoc(collection(db, "daily_tasks"), { text, tagKey, dateKey: dayKeyNow(), status: "open", type: "task", doneBy: [] });
   $("extraTaskInp").value = ""; alert("Zusatzaufgabe live!");
 };
 
+// GLOBALES PUNKTE ÜBERSCHREIBEN (Reset)
+if($("savePointsBtn")) $("savePointsBtn").onclick = async () => {
+  if(!confirm("Achtung! Dies ändert die Punkte für ALLE Mitarbeiter gleichzeitig. Fortfahren?")) return;
+  const tPoints = Number($("editTasksInp").value) || 0;
+  const rPoints = Number($("editRidesInp").value) || 0;
+  const batch = writeBatch(db);
+  employees.forEach(emp => {
+    const k = keyOfName(emp.name);
+    batch.set(doc(db, "points_tasks", k), { points: tPoints }, { merge: true });
+    batch.set(doc(db, "points_rides", k), { points: rPoints }, { merge: true });
+  });
+  await batch.commit(); alert(`Punkte für ALLE erfolgreich überschrieben!`);
+};
+
 if($("empAddBtn")) $("empAddBtn").onclick = async () => { const v = n($("empAdd").value); if(!v) return; await setDoc(doc(db, "employees", keyOfName(v)), { name: v, passHash: "" }); $("empAdd").value = ""; };
 if($("adminUidAddBtn")) $("adminUidAddBtn").onclick = async () => { if(!isAdmin) return; await setDoc(doc(db, "admins_by_name", keyOfName($("adminUidAdd").value)), { enabled: true }); $("adminUidAdd").value = ""; };
-if($("superUidAddBtn")) $("superUidAddBtn").onclick = async () => { if(!isSuperAdmin) return; await setDoc(doc(db, "superadmins_by_name", keyOfName($("superUidAdd").value)), { enabled: true }); $("superUidAdd").value = ""; };
+if($("superUidAddBtn")) $("superUidAddBtn").onclick = async () => { if(!isSuperAdmin && !isDienststellenleitung) return; await setDoc(doc(db, "superadmins_by_name", keyOfName($("superUidAdd").value)), { enabled: true }); $("superUidAdd").value = ""; };
+if($("dlUidAddBtn")) $("dlUidAddBtn").onclick = async () => { 
+  if(!isSuperAdmin && !isDienststellenleitung) return; 
+  await setDoc(doc(db, "dienststellenleitung_by_name", keyOfName($("dlUidAdd").value)), { enabled: true }); 
+  $("dlUidAdd").value = ""; alert("Dienststellenleitung erfolgreich hinzugefügt!");
+};
+
 if($("tagAddBtn")) $("tagAddBtn").onclick = async () => { const v = n($("tagAddInp").value); if(!v) return; await setDoc(doc(db, "tags", keyOfName(v)), { tagId: v, tagKey: keyOfName(v) }); $("tagAddInp").value = ""; };
 if($("planAddBtn")) $("planAddBtn").onclick = async () => { const text = n($("planTextInp").value); if(!text) return; await addDoc(collection(db, "weekly_tasks"), { weekday: Number($("planDaySel").value), tagKey: $("planTagSel").value, text }); $("planTextInp").value = ""; };
 if($("hygieneCatAddBtn")) $("hygieneCatAddBtn").onclick = async () => { const v = n($("hygieneCatInp").value); if(!v) return; await addDoc(collection(db, "hygiene_cats"), { title: v }); $("hygieneCatInp").value = ""; };
@@ -221,7 +272,6 @@ if($("hygieneItemAddBtn")) $("hygieneItemAddBtn").onclick = async () => {
   $("hygieneItemInp").value = ""; $("hygieneSubtasksInp").value = ""; alert("Vorlage gespeichert!");
 };
 
-// CSV EXPORT LOGIK
 if($("exportCsvBtn")) $("exportCsvBtn").onclick = () => {
   let csv = "Name;Aufgaben;Fahrten;Gesamt\n";
   const rows = document.querySelectorAll("#pointsTableBody tr");
@@ -229,20 +279,6 @@ if($("exportCsvBtn")) $("exportCsvBtn").onclick = () => {
   rows.forEach(tr => { let c = tr.querySelectorAll("td"); csv += `${c[0].innerText};${c[1].innerText};${c[2].innerText};${c[3].innerText}\n`; });
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Punkte_RA93_${dayKeyNow()}.csv`; link.click();
-};
-
-// PUNKTE BEARBEITEN LOGIK
-if($("editPointsUserSel")) $("editPointsUserSel").onchange = async () => {
-  const k = $("editPointsUserSel").value; if(!k) return;
-  const tSnap = await getDoc(doc(db, "points_tasks", k)), rSnap = await getDoc(doc(db, "points_rides", k));
-  $("editTasksInp").value = tSnap.exists() ? tSnap.data().points || 0 : 0;
-  $("editRidesInp").value = rSnap.exists() ? rSnap.data().points || 0 : 0;
-};
-if($("savePointsBtn")) $("savePointsBtn").onclick = async () => {
-  const k = $("editPointsUserSel").value; if(!k) return alert("Mitarbeiter wählen!");
-  await setDoc(doc(db, "points_tasks", k), { points: Number($("editTasksInp").value) || 0 }, { merge: true });
-  await setDoc(doc(db, "points_rides", k), { points: Number($("editRidesInp").value) || 0 }, { merge: true });
-  alert("Punkte erfolgreich aktualisiert!");
 };
 
 window.openHygCheck = async (id) => {
@@ -267,7 +303,7 @@ function renderHygieneUserView() {
   });
 }
 
-/* --- FAHRTEN LOGIK (Mit Abnahme) --- */
+// LOGIK: FAHRTEN MIT DYNAMISCHEN PUNKTEN
 if($("saveRideBtn")) $("saveRideBtn").onclick = async () => {
   const name = $("rideNameSel").value, einsatz = $("rideEinsatz").value; if(!name || !einsatz) return;
   await addDoc(collection(db, "rides"), { name, einsatz, status: "open", createdAt: serverTimestamp() });
@@ -275,20 +311,31 @@ if($("saveRideBtn")) $("saveRideBtn").onclick = async () => {
 };
 
 window.finalCheckRide = async (id, userKey) => {
-  await updateDoc(doc(db, "rides", id), { status: "done" });
-  await setDoc(doc(db, "points_rides", userKey), { points: increment(1) }, { merge: true });
+  // Speichere die aktuell gültigen Punkte direkt im Dokument, falls sie sich später global ändern
+  await updateDoc(doc(db, "rides", id), { status: "done", awardedPoints: globalRidePoints });
+  await setDoc(doc(db, "points_rides", userKey), { points: increment(globalRidePoints) }, { merge: true });
 };
 window.rejectRide = async (id) => { await deleteDoc(doc(db, "rides", id)); };
 
 window.delRide = async (id, userKey, status) => { 
   if(!confirm("Fahrt löschen?")) return; 
-  if(status !== "open") { await setDoc(doc(db, "points_rides", userKey), { points: increment(-1) }, { merge: true }); }
+  if(status !== "open") { 
+    // Holt sich den gespeicherten Wert der damaligen Fahrt, oder nutzt den neuen Fallback
+    const snap = await getDoc(doc(db, "rides", id));
+    const pts = snap.exists() ? (snap.data().awardedPoints || globalRidePoints) : globalRidePoints;
+    await setDoc(doc(db, "points_rides", userKey), { points: increment(-pts) }, { merge: true }); 
+  }
   await deleteDoc(doc(db, "rides", id)); 
 };
 
+// LOGIK: AUFGABEN MIT DYNAMISCHEN PUNKTEN
 window.finalCheck = async (id) => {
   const snap = await getDoc(doc(db, "daily_tasks", id));
-  if(snap.exists() && snap.data().doneBy) { for (const name of snap.data().doneBy) await setDoc(doc(db, "points_tasks", keyOfName(name)), { points: increment(1) }, { merge: true }); }
+  if(snap.exists() && snap.data().doneBy) { 
+    for (const name of snap.data().doneBy) {
+      await setDoc(doc(db, "points_tasks", keyOfName(name)), { points: increment(globalTaskPoints) }, { merge: true }); 
+    }
+  }
   await deleteDoc(doc(db, "daily_tasks", id));
 };
 
