@@ -6,8 +6,8 @@
   --line: #1f2937;
   --accent: #2563eb;
   --danger: #ef4444;
+  --sidebar-width: 260px;
   
-  /* Safe Area Variablen für sauberes Padding */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
@@ -18,215 +18,193 @@
 
 body {
   margin: 0;
-  padding-top: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
-  /* Verhindert horizontales Scrollen bei Animationen */
   overflow-x: hidden; 
+}
+
+/* =============================
+   LAYOUT STRUKTUR (SIDEBAR)
+   ============================= */
+.main-layout {
+  display: flex;
+  min-height: 100vh;
+  padding-top: 60px; /* Platz für Topbar */
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--card);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 15px;
+  gap: 10px;
+  position: sticky;
+  top: 60px;
+  height: calc(100vh - 60px);
+  transition: transform 0.3s ease-in-out;
+  z-index: 900;
+}
+
+.sidebar-header {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  padding-left: 10px;
+}
+
+/* Sidebar Mobil-Modus */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    transform: translateX(-100%);
+    box-shadow: 10px 0 20px rgba(0,0,0,0.5);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
 }
 
 /* =============================
    HEADER / TOPBAR
    ============================= */
 .topbar {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 60px;
   z-index: 1000;
-  background: rgba(11, 15, 20, 0.95); /* Leicht transparent */
-  backdrop-filter: blur(10px); /* Glas-Effekt wie iOS */
+  background: rgba(11, 15, 20, 0.95);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
-
-  /* Layout Fix: Flexbox damit Links/Rechts getrennt sind */
   display: flex;
   justify-content: space-between;
   align-items: center;
-
-  /* Safe Area Padding */
-  padding-top: calc(var(--safe-top) + 12px);
-  padding-bottom: 12px;
-  padding-left: max(16px, var(--safe-left));
-  padding-right: max(16px, var(--safe-right));
+  padding: 0 16px;
 }
 
-.brand { 
-  font-weight: 700; 
-  font-size: 1.1rem;
-  white-space: nowrap;
-}
-
-.right { 
-  display: flex; 
-  gap: 10px; 
-  align-items: center; 
-}
-
-.who { 
-  color: var(--muted); 
-  font-size: 0.8rem; 
-  text-align: right;
-  line-height: 1.2;
-}
+.top-left { display: flex; align-items: center; gap: 15px; }
+.top-right { display: flex; gap: 10px; align-items: center; }
 
 /* =============================
-   CONTAINER & CARDS
+   COMPONENTS (CARDS & BUTTONS)
    ============================= */
 .container {
-  max-width: 800px;
+  flex: 1;
+  max-width: 1000px;
+  padding: 20px;
   margin: 0 auto;
-  padding: 20px max(16px, var(--safe-left));
-  padding-bottom: calc(var(--safe-bottom) + 80px); /* Platz unten für Scroll */
 }
 
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 16px; /* Etwas runder für modernen Look */
+  border-radius: 16px;
   padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-.cardlite {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed var(--line);
-  border-radius: 12px;
-  padding: 12px;
-  margin-top: 12px;
+.btn {
+  border: none;
+  background: var(--accent);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+.btn.danger { background: var(--danger); }
+.btn.grow { width: 100%; display: flex; }
+
+/* Navigation Buttons (Sidebar) */
+.tabbtn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  padding: 12px 15px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: 0.2s;
+}
+
+.tabbtn:hover { background: rgba(255,255,255,0.05); }
+
+.tabbtn.active {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
 /* =============================
-   TYPOGRAPHY & UTILS
+   FORMS
    ============================= */
-h2, h3 { margin: 0 0 10px 0; font-weight: 600; }
-p { margin: 0 0 10px 0; line-height: 1.5; }
-
-.muted { color: var(--muted); }
-.small { font-size: 0.85rem; }
-.error { color: #fca5a5; margin-top: 10px; font-weight: 500; }
-.hidden { display: none !important; }
-
-.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
-.between { justify-content: space-between; }
-.grow { flex: 1; }
-
-.grid { display: grid; gap: 10px; grid-template-columns: 1fr; }
-.grid2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
-
-.divider { height: 1px; background: var(--line); margin: 16px 0; }
-
-/* =============================
-   FORMS & BUTTONS
-   ============================= */
-input, select {
+input, select, textarea {
   width: 100%;
   border-radius: 10px;
   border: 1px solid var(--line);
   background: #0b1220;
   color: var(--text);
   padding: 12px;
-  font-size: 1rem; /* Verhindert Zoom auf iOS */
   outline: none;
-  transition: border-color 0.2s;
+  margin-bottom: 10px;
 }
-input:focus, select:focus { border-color: var(--accent); }
 
-.btn {
-  border: none;
-  background: var(--accent);
-  color: white;
-  padding: 10px 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.95rem;
-  transition: opacity 0.2s;
-  text-align: center;
-}
-.btn:active { opacity: 0.7; }
-.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
-.btn.danger { background: var(--danger); color: white; border: none; }
-
-/* =============================
-   LISTS & ITEMS
-   ============================= */
-.list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-
-.item {
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px;
+/* Spezial-Liste für Checkboxen */
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   background: #0b1220;
-  gap: 10px; /* Abstand zwischen Text und Button */
-}
-
-/* Damit langer Text nicht den Button verdeckt */
-.item .main { flex: 1; min-width: 0; } 
-.item .main b { display: block; overflow: hidden; text-overflow: ellipsis; }
-
-/* Erledigte Aufgaben etwas abdunkeln */
-.item.done { opacity: 0.6; }
-
-/* =============================
-   TABS & NAV
-   ============================= */
-.tabs { 
-  display: flex; 
-  gap: 8px; 
-  overflow-x: auto; /* Scrollbar auf kleinen Handys */
-  padding-bottom: 4px;
-}
-
-/* Navigation Buttons (Tabs) */
-.tabbtn, .subtabbtn {
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--muted);
-  
-  /* HIER GEÄNDERT: Größerer Klickbereich */
-  padding: 14px 18px; 
-  font-size: 1.05rem; 
-  font-weight: 600;
-  
+  padding: 12px;
   border-radius: 12px;
+  border: 1px solid var(--line);
+  margin-top: 10px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--card);
+  border-radius: 8px;
   cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s;
-  
-  /* Flexibel wachsen lassen auf Handy */
-  flex: 1; 
-  text-align: center;
 }
 
-/* Aktiver Tab */
-.tabbtn.active, .subtabbtn.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-  transform: translateY(-1px); /* Kleiner 3D Effekt */
-}
-
-.subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.check-item input { width: 22px; height: 22px; margin: 0; }
 
 /* =============================
-   BADGES & PILLS
+   UTILS
    ============================= */
-.pill {
-  font-size: 0.75rem;
-  border: 1px solid var(--line);
-  padding: 4px 8px;
-  border-radius: 6px;
-  color: var(--muted);
-  background: rgba(0,0,0,0.2);
+.list { display: flex; flex-direction: column; gap: 8px; }
+.item {
+  display: flex; justify-content: space-between; align-items: center;
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; background: #0b1220;
 }
 
-#adminBadge {
-  background: var(--danger);
-  color: white;
-  border: none;
-  font-weight: bold;
+.hidden { display: none !important; }
+.divider { height: 1px; background: var(--line); margin: 20px 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Modal */
+.modal {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.8); z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
 }
+.modal-content { width: 100%; max-width: 500px; }
