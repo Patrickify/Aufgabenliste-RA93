@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="manifest" href="./manifest.json" />
   <link rel="stylesheet" href="./styles.css" />
   <title>RA 93 Pro</title>
 </head>
 <body>
 
   <header class="topbar">
-    <div class="brand">RA 93 Pro</div>
+    <div class="brand">RA 93</div>
     <div class="right">
       <span id="whoami" class="who">—</span>
       <button id="settingsBtn" class="btn ghost">⚙️</button>
@@ -58,20 +57,18 @@
         <button class="tabbtn active" data-tab="tasksTab">Aufgaben</button>
         <button class="tabbtn" data-tab="hygieneTab">Grunddesinfektion</button>
         <button class="tabbtn" data-tab="ridesTab">Fahrten</button>
-        <button class="tabbtn" data-tab="adminTab" id="adminTabBtn" class="hidden">Admin</button>
+        <button class="tabbtn hidden" data-tab="adminTab" id="adminTabBtn">Admin</button>
       </section>
 
       <section id="tasksTab" class="tab card">
-        <input id="tagSearch" class="search" placeholder="Bereich suchen..." />
+        <input id="tagSearch" class="search" placeholder="Suche..." />
         <div id="tagList" class="list"></div>
         <div class="divider"></div>
         <h2 id="openTagTitle">Bereich wählen</h2>
-        
         <div class="cardlite" style="margin-bottom:10px">
-          <p class="small muted">Wer hat die Aufgabe erledigt? (Mehrfachwahl)</p>
+          <p class="small muted">Wer hat die Aufgabe erledigt?</p>
           <div id="doneByCheckBoxes" class="grid2" style="max-height:150px; overflow-y:auto; border:1px solid #333; padding:10px; border-radius:8px;"></div>
         </div>
-        
         <p id="taskHint" class="small muted" style="color:var(--accent)"></p>
         <button id="markSelectedDoneBtn" class="btn grow">✅ Erledigen</button>
         <div id="taskList" class="list"></div>
@@ -88,7 +85,7 @@
           <label>Fahrer <select id="rideNameSel" class="select"></select></label>
           <label>Einsatz <input id="rideEinsatz" class="input" type="number" /></label>
         </div>
-        <button id="addRideBtn" class="btn grow">Speichern (+1 Pkt)</button>
+        <button id="addRideBtn" class="btn grow">Speichern</button>
         <div id="ridesList" class="list" style="margin-top:15px"></div>
       </section>
 
@@ -98,11 +95,11 @@
           <button class="subtabbtn" data-subtab="statsSub">Punkte</button>
           <button class="subtabbtn" data-subtab="hygieneAdminSub">GD-Setup</button>
           <button class="subtabbtn" data-subtab="planSub">Wochenplan</button>
-          <button class="subtabbtn" data-subtab="employeesSub">Personal/Rollen</button>
+          <button class="subtabbtn" data-subtab="employeesSub">Rollen</button>
         </section>
 
         <section id="toolsSub" class="subtab">
-          <h4>📋 Aufgaben zur Abnahme</h4>
+          <h4>📋 Offene Abnahmen</h4>
           <div id="finalListTasks" class="list"></div>
           <div class="divider"></div>
           <h4>🧹 GD-Kontrolle</h4>
@@ -112,40 +109,39 @@
 
         <section id="statsSub" class="subtab hidden">
           <h3>Punkteübersicht</h3>
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead><tr style="color:var(--accent); border-bottom:1px solid #333;"><th>Name</th><th>Aufg.</th><th>Fahrt</th><th>∑</th></tr></thead>
+          <table style="width: 100%;">
+            <thead><tr><th>Name</th><th>Aufg.</th><th>Fahrt</th><th>∑</th></tr></thead>
             <tbody id="pointsTableBody"></tbody>
           </table>
         </section>
 
         <section id="hygieneAdminSub" class="subtab hidden">
-          <h4>Kategorien</h4>
+          <h4>GD Kategorien</h4>
           <div class="row"><input id="hygieneCatInp" class="input"/><button id="hygieneCatAddBtn" class="btn ghost">+</button></div>
           <div id="hygieneCatList" class="list"></div>
           <div class="divider"></div>
           <h4>Neue Vorlage</h4>
           <select id="hygieneItemCatSel" class="select"></select>
-          <input id="hygieneItemInp" class="input" placeholder="Aufgabentitel"/>
-          <textarea id="hygieneSubtasksInp" class="input" placeholder="Checkliste: Pro Zeile ein Punkt"></textarea>
-          <button id="hygieneItemAddBtn" class="btn grow">Vorlage speichern</button>
+          <input id="hygieneItemInp" class="input" placeholder="Titel"/>
+          <textarea id="hygieneSubtasksInp" class="input" placeholder="Unterpunkte (einer pro Zeile)"></textarea>
+          <button id="hygieneItemAddBtn" class="btn grow">Speichern</button>
         </section>
 
         <section id="planSub" class="subtab hidden">
-          <h4>Wochenplan</h4>
           <div class="grid2">
             <select id="planDaySel" class="select"><option value="1">Mo</option><option value="2">Di</option><option value="3">Mi</option><option value="4">Do</option><option value="5">Fr</option><option value="6">Sa</option><option value="7">So</option></select>
             <select id="planTagSel" class="select"></select>
           </div>
           <input id="planTextInp" class="input" placeholder="Aufgabentext" />
-          <button id="planAddBtn" class="btn grow">Speichern</button>
-          <div id="planList" class="list"></div>
+          <button id="planAddBtn" class="btn grow">Wochenplan +</button>
+          <div id="planList" class="list" style="margin-top:10px"></div>
         </section>
 
         <section id="employeesSub" class="subtab hidden">
           <h4>Superadmin ernennen</h4>
           <div class="row"><input id="superUidAdd" class="input" /><button id="superUidAddBtn" class="btn ghost">+</button></div>
           <div class="divider"></div>
-          <h4>Mitarbeiter hinzufügen</h4>
+          <h4>Mitarbeiter</h4>
           <div class="row"><input id="empAdd" class="input" /><button id="empAddBtn" class="btn ghost">+</button></div>
           <div id="empList" class="list"></div>
         </section>
