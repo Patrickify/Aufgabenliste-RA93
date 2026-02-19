@@ -30,74 +30,52 @@ function dayKeyNow() { const d = new Date(); return `${d.getFullYear()}${String(
 function monthKey() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
 function stamp() { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 
-/* --- 1. INITIALISIERUNG & LOGIN --- */
+/* --- 1. LOGIN & AUTH (STARTET SOFORT) --- */
 signInAnonymously(auth);
-
-// WICHTIG: Streams müssen VOR der Auth-Prüfung starten für das Login-Dropdown!
-initStreams();
+initStreams(); // Lädt Namen sofort für das Login-Dropdown
 
 onAuthStateChanged(auth, async user => {
   if (user && meKey) {
     const uRef = doc(db, "users", user.uid);
     await setDoc(uRef, { name: meName, nameKey: meKey }, { merge: true });
-    
     const [sSnap, aSnap, uSnap] = await Promise.all([
       getDoc(doc(db, "superadmins_by_name", meKey)),
       getDoc(doc(db, "admins_by_name", meKey)),
       getDoc(uRef)
     ]);
-    
     if(uSnap.exists()) myMuteUntil = uSnap.data().muteUntil || "";
     isSuperAdmin = sSnap.exists() && sSnap.data()?.enabled === true;
     isAdmin = isSuperAdmin || (aSnap.exists() && aSnap.data()?.enabled === true);
-
     $("whoami").textContent = `${meName}${isSuperAdmin ? " (S)" : isAdmin ? " (A)" : ""}`;
     show($("adminTabBtn"), isAdmin); show($("loginView"), false); show($("appView"), true);
-    
     if (isAdmin) { initAdminLogic(); runDayChange(); initPushSystem(); }
-  } else { 
-    show($("loginView"), true); 
-    show($("appView"), false);
-  }
+  } else { show($("loginView"), true); show($("appView"), false); }
 });
 
 if ($("loginBtn")) $("loginBtn").onclick = async () => {
-  const name = $("nameSel").value;
-  const pass = n($("passInp").value);
-  if (!name || !pass) return alert("Bitte Name wählen und Passwort eingeben!");
-  
+  const name = $("nameSel").value, pass = n($("passInp").value);
+  if (!name || !pass) return alert("Daten unvollständig!");
   const key = keyOfName(name);
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${key}:${pass}`)).then(b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""));
   const eSnap = await getDoc(doc(db, "employees", key));
-  
-  if (!eSnap.exists()) return alert("Benutzer nicht gefunden!");
+  if (!eSnap.exists()) return alert("User unbekannt");
   if (!eSnap.data().passHash) await updateDoc(doc(db, "employees", key), { passHash: hash });
-  else if (eSnap.data().passHash !== hash) return alert("Passwort falsch!");
-  
+  else if (eSnap.data().passHash !== hash) return alert("Passwort falsch");
   localStorage.setItem("meName", name); localStorage.setItem("meKey", key); location.reload();
 };
 
-/* --- 2. DATA STREAMS --- */
+/* --- 2. DATA STREAMS (LIVE-UPDATES) --- */
 function initStreams() {
-  // Mitarbeiter für Login und Listen laden
   onSnapshot(query(collection(db, "employees"), orderBy("name")), s => {
     employees = s.docs.map(d => d.data());
     const opts = `<option value="">Wer bist du?</option>` + employees.map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join("");
-    
-    if ($("nameSel")) $("nameSel").innerHTML = opts; 
-    if ($("rideNameSel")) $("rideNameSel").innerHTML = opts;
-    
+    if($("nameSel")) $("nameSel").innerHTML = opts; if($("rideNameSel")) $("rideNameSel").innerHTML = opts;
     if ($("doneByCheckBoxes")) {
-      $("doneByCheckBoxes").innerHTML = employees.map(e => `
-        <label style="display:flex; align-items:center; gap:12px; padding:12px; background:#1a1f26; border-radius:8px; width:100%;">
-          <input type="checkbox" name="worker" value="${esc(e.name)}" style="width:22px; height:22px;"> 
-          <span style="font-size:1.1rem">${esc(e.name)}</span>
-        </label>`).join("");
+      $("doneByCheckBoxes").innerHTML = employees.map(e => `<label style="display:flex; align-items:center; gap:12px; padding:12px; background:#1a1f26; border-radius:8px; width:100%;"><input type="checkbox" name="worker" value="${esc(e.name)}" style="width:22px; height:22px;"> <span style="font-size:1.1rem">${esc(e.name)}</span></label>`).join("");
     }
     if (isAdmin && $("empList")) $("empList").innerHTML = employees.map(e => `<div class="item"><span>${esc(e.name)}</span><button class="btn danger" onclick="window.delDoc('employees','${keyOfName(e.name)}')">X</button></div>`).join("");
   });
 
-  // Tags/Bereiche
   onSnapshot(query(collection(db, "tags"), orderBy("tagId")), s => {
     tags = s.docs.map(d => ({id:d.id, ...d.data()}));
     renderTagList();
@@ -107,26 +85,21 @@ function initStreams() {
     if($("adminTagList")) $("adminTagList").innerHTML = tags.map(t=>`<div class="item"><span>${t.tagId}</span><button class="btn danger" onclick="window.delDoc('tags','${t.id}')">X</button></div>`).join("");
   });
 
-  // Fahrten (Rides)
   onSnapshot(query(collection(db, "rides"), orderBy("createdAt", "desc"), limit(50)), s => {
-    $("ridesList").innerHTML = s.docs.map(d => {
-      const r = d.data();
-      return `<div class="item"><span>🚗 ${esc(r.name)} (${esc(r.einsatz)})</span>${isAdmin ? `<button class="btn danger" onclick="window.delRide('${d.id}', '${keyOfName(r.name)}')">X</button>` : ''}</div>`;
-    }).join("");
+    if($("ridesList")) $("ridesList").innerHTML = s.docs.map(d => `<div class="item"><span>🚗 ${esc(d.data().name)} (${esc(d.data().einsatz)})</span>${isAdmin ? `<button class="btn danger" onclick="window.delRide('${d.id}', '${keyOfName(d.data().name)}')">X</button>` : ''}</div>`).join("");
   });
 
-  // Hygiene Kategorien
   onSnapshot(collection(db, "hygiene_cats"), s => {
     hygieneCats = s.docs.map(d => ({id: d.id, ...d.data()}));
     renderHygieneUserView();
     if(isAdmin) {
-      $("hygieneCatList").innerHTML = hygieneCats.map(c => `<div class="item"><span>${c.title}</span><button class="btn danger" onclick="window.delDoc('hygiene_cats','${c.id}')">X</button></div>`).join("");
-      $("hygieneItemCatSel").innerHTML = hygieneCats.map(c => `<option value="${c.id}">${esc(c.title)}</option>`).join("");
+      if($("hygieneCatList")) $("hygieneCatList").innerHTML = hygieneCats.map(c => `<div class="item"><span>${c.title}</span><button class="btn danger" onclick="window.delDoc('hygiene_cats','${c.id}')">X</button></div>`).join("");
+      if($("hygieneItemCatSel")) $("hygieneItemCatSel").innerHTML = hygieneCats.map(c => `<option value="${c.id}">${esc(c.title)}</option>`).join("");
     }
   });
 }
 
-/* --- 3. AUFGABEN-LOGIK --- */
+/* --- 3. AUFGABEN-LOGIK (USER) --- */
 function renderTagList() {
   const q = n($("tagSearch").value).toLowerCase();
   $("tagList").innerHTML = tags.filter(t=>t.tagId.toLowerCase().includes(q)).map(t=>`<div class="item"><span>🏷️ ${t.tagId}</span><button class="btn ghost" onclick="window.openTag('${t.tagKey}','${t.tagId}')">Öffnen</button></div>`).join("");
@@ -149,7 +122,7 @@ $("markSelectedDoneBtn").onclick = async () => {
   document.querySelectorAll('input[name="worker"]').forEach(cb => cb.checked = false);
 };
 
-/* --- 4. HYGIENE / CHECKLISTEN --- */
+/* --- 4. HYGIENE & CHECKLISTEN --- */
 window.openHygCheck = async (id) => {
   activeCheckTaskId = id; const snap = await getDoc(doc(db, "daily_tasks", id)); const data = snap.data();
   $("modalTitle").textContent = data.text; const cont = $("modalSubtasks"); cont.innerHTML = "";
@@ -175,8 +148,13 @@ function renderHygieneUserView() {
   });
 }
 
-/* --- 5. ADMIN LOGIK --- */
+/* --- 5. ADMIN LOGIK & WOCHENPLAN --- */
 function initAdminLogic() {
+  onSnapshot(query(collection(db, "weekly_tasks"), orderBy("weekday")), s => {
+    const days = ["", "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+    if($("planList")) $("planList").innerHTML = s.docs.map(d => `<div class="item"><span><b>${days[d.data().weekday]}</b>: ${esc(d.data().text)}</span><button class="btn danger" onclick="window.delDoc('weekly_tasks','${d.id}')">X</button></div>`).join("");
+  });
+
   onSnapshot(query(collection(db, "daily_tasks"), where("dateKey", "==", dayKeyNow()), where("status", "==", "done")), s => {
     const tH = [], hH = [];
     s.docs.forEach(d => {
@@ -192,37 +170,16 @@ function initAdminLogic() {
 window.finalCheck = async (id) => {
   const dRef = doc(db, "daily_tasks", id); const snap = await getDoc(dRef); const data = snap.data();
   if (data.type !== "hygiene") { for (const name of data.doneBy) { await setDoc(doc(db, "points_tasks", keyOfName(name)), { points: increment(1) }, { merge: true }); } }
-  await setDoc(doc(db, "archive", monthKey(), "tasks", id), { ...data, status: "final" });
   await deleteDoc(dRef);
 };
 
-window.rejectTask = async (id) => { if(confirm("Wieder öffnen?")) await updateDoc(doc(db, "daily_tasks", id), { status: "open", doneBy: [] }); };
+window.rejectTask = async (id) => { if(confirm("Zurückweisen?")) await updateDoc(doc(db, "daily_tasks", id), { status: "open", doneBy: [] }); };
 
-function renderPointsTable(sTasks, sRides) {
-  const stats = {};
-  sTasks.forEach(d => { stats[d.id] = { t: d.data().points || 0, r: 0 }; });
-  sRides.forEach(d => { if(!stats[d.id]) stats[d.id] = { t: 0, r: 0 }; stats[d.id].r = d.data().points || 0; });
-  if($("pointsTableBody")) $("pointsTableBody").innerHTML = Object.keys(stats).map(k => `<tr><td>${k}</td><td>${stats[k].t}</td><td>${stats[k].r}</td><td><b>${stats[k].t + stats[k].r}</b></td></tr>`).join("");
-}
-
-/* --- 6. SETUP & TABS --- */
-function setupTabs(btnClass, tabClass) {
-  document.querySelectorAll(btnClass).forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll(tabClass).forEach(t => show(t, false));
-      show($(btn.dataset.tab || btn.dataset.subtab), true);
-      document.querySelectorAll(btnClass).forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-    };
-  });
-}
-setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
-
-/* --- 7. SONSTIGE ADMIN BUTTONS --- */
-if($("tagAddBtn")) $("tagAddBtn").onclick = async () => {
-  const v = n($("tagAddInp").value); if(!v) return;
-  await setDoc(doc(db, "tags", keyOfName(v)), { tagId: v, tagKey: keyOfName(v) });
-  $("tagAddInp").value = "";
+/* --- 6. SETUP-BUTTONS (ADMIN) --- */
+if($("planAddBtn")) $("planAddBtn").onclick = async () => {
+  const text = n($("planTextInp").value); if(!text) return;
+  await addDoc(collection(db, "weekly_tasks"), { weekday: Number($("planDaySel").value), tagKey: $("planTagSel").value, text: text, type: "task" });
+  $("planTextInp").value = "";
 };
 
 if($("addExtraTaskBtn")) $("addExtraTaskBtn").onclick = async () => {
@@ -232,25 +189,39 @@ if($("addExtraTaskBtn")) $("addExtraTaskBtn").onclick = async () => {
   $("extraTaskInp").value = ""; alert("Zusatzaufgabe live!");
 };
 
+$("tagAddBtn").onclick = async () => {
+  const v = n($("tagAddInp").value); if(!v) return;
+  await setDoc(doc(db, "tags", keyOfName(v)), { tagId: v, tagKey: keyOfName(v) });
+  $("tagAddInp").value = "";
+};
+
 $("hygieneItemAddBtn").onclick = async () => {
   const subs = $("hygieneSubtasksInp").value.split('\n').filter(l => l.trim() !== "");
   await addDoc(collection(db, "hygiene_templates"), { catId: $("hygieneItemCatSel").value, text: $("hygieneItemInp").value, subtasks: subs, type: "hygiene" });
   $("hygieneItemInp").value=""; $("hygieneSubtasksInp").value="";
 };
 
-$("planAddBtn").onclick = async () => {
-  await addDoc(collection(db, "weekly_tasks"), { weekday: Number($("planDaySel").value), tagKey: $("planTagSel").value, text: $("planTextInp").value, type: "task" });
-  $("planTextInp").value = "";
-};
-
 $("superUidAddBtn").onclick = async () => { if(!isSuperAdmin) return alert("Nur Superadmin!"); await setDoc(doc(db, "superadmins_by_name", keyOfName($("superUidAdd").value)), { enabled: true }); $("superUidAdd").value = ""; };
 $("adminUidAddBtn").onclick = async () => { if(!isAdmin) return; await setDoc(doc(db, "admins_by_name", keyOfName($("adminUidAdd").value)), { enabled: true }); $("adminUidAdd").value = ""; };
 $("empAddBtn").onclick = async () => { await setDoc(doc(db, "employees", keyOfName($("empAdd").value)), { name: $("empAdd").value, passHash: "" }); $("empAdd").value=""; };
 $("hygieneCatAddBtn").onclick = async () => { if($("hygieneCatInp").value) await addDoc(collection(db, "hygiene_cats"), { title: $("hygieneCatInp").value }); $("hygieneCatInp").value=""; };
-
 window.delDoc = async (col, id) => { if(confirm("Löschen?")) await deleteDoc(doc(db, col, id)); };
 
-/* --- 8. GENERATOR & PUSH --- */
+/* --- 7. PUNKTE & TABELLEN --- */
+window.delRide = async (id, userKey) => {
+  if(!confirm("Löschen? Punkt wird abgezogen!")) return;
+  await deleteDoc(doc(db, "rides", id));
+  await setDoc(doc(db, "points_rides", userKey), { points: increment(-1) }, { merge: true });
+};
+
+function renderPointsTable(sTasks, sRides) {
+  const stats = {};
+  sTasks.forEach(d => { stats[d.id] = { t: d.data().points || 0, r: 0 }; });
+  sRides.forEach(d => { if(!stats[d.id]) stats[d.id] = { t: 0, r: 0 }; stats[d.id].r = d.data().points || 0; });
+  if($("pointsTableBody")) $("pointsTableBody").innerHTML = Object.keys(stats).map(k => `<tr><td align="left">${k}</td><td align="center">${stats[k].t}</td><td align="center">${stats[k].r}</td><td align="right"><b>${stats[k].t + stats[k].r}</b></td></tr>`).join("");
+}
+
+/* --- 8. AUTOMATISIERUNG --- */
 async function runDayChange() {
   const today = dayKeyNow(); const mS = await getDoc(doc(db, "meta", "day_state"));
   if (mS.exists() && mS.data().lastDayKey === today) return;
@@ -262,6 +233,19 @@ async function runDayChange() {
   await batch.set(doc(db, "meta", "day_state"), { lastDayKey: today }, { merge: true });
   await batch.commit();
 }
+
+/* --- 9. UI & TABS --- */
+function setupTabs(btnClass, tabClass) {
+  document.querySelectorAll(btnClass).forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(tabClass).forEach(t => show(t, false));
+      show($(btn.dataset.tab || btn.dataset.subtab), true);
+      document.querySelectorAll(btnClass).forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    };
+  });
+}
+setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
 
 function initPushSystem() {
   $("settingsBtn").onclick = () => show($("settingsCard"), true);
