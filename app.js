@@ -1,6 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import { initializeFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, orderBy, limit, serverTimestamp, writeBatch, increment } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+// NEU: Messaging Import für echte Pushes
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCPTt1ZZ-lj5qZ1Rrn-N7e5QZnhtXB-Pu8",
@@ -14,14 +16,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+const messaging = getMessaging(app); // Push Initialisierung
 
 let meName = localStorage.getItem("meName") || "", meKey = localStorage.getItem("meKey") || "";
 let isAdmin = false, isSuperAdmin = false, isDienststellenleitung = false, isEhrenamtlich = false, isZivildiener = false, myMuteUntil = "";
 let tags = [], employees = [], hygieneCats = [], ticketCats = [];
 let selectedTaskId = "", activeCheckTaskId = null, activeTicketId = null;
 let globalTaskPoints = 1, globalRidePoints = 1;
-
-let initialLoadComplete = false; // Verhindert Benachrichtigungs-Spam beim Neuladen
+let initialLoadComplete = false; 
 
 const $ = (id) => document.getElementById(id);
 const show = (el, on) => el && el.classList.toggle("hidden", !on);
@@ -30,6 +32,7 @@ const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
 function keyOfName(name) { return n(name).toLowerCase().replace(/[ä]/g, "ae").replace(/[ö]/g, "oe").replace(/[ü]/g, "ue").replace(/[ß]/g, "ss").replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, ""); }
 function dayKeyNow() { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; }
 function stamp() { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+
 function triggerPush(title, body) {
   if (myMuteUntil && Number(myMuteUntil) >= Number(dayKeyNow())) return;
   if (Notification.permission === "granted") new Notification(title, { body });
@@ -63,8 +66,8 @@ onAuthStateChanged(auth, async user => {
     else if (isEhrenamtlich) roleMarker = " (EA)"; else if (isZivildiener) roleMarker = " (Z)";
 
     if($("whoami")) $("whoami").textContent = meName + roleMarker;
-    show($("adminTabBtn"), isAdmin); show($("ticketTabBtn"), isAdmin); // Tickets nur für Leitung/Admins sichtbar
-    show($("ticketSetupBtn"), (isSuperAdmin || isDienststellenleitung)); // Ticket Setup nur für DL/S
+    show($("adminTabBtn"), isAdmin); show($("ticketTabBtn"), isAdmin); 
+    show($("ticketSetupBtn"), (isSuperAdmin || isDienststellenleitung)); 
     show($("loginView"), false); show($("appView"), true);
     
     initAppDataStreams(); setTimeout(() => { initialLoadComplete = true; }, 3000);
@@ -145,18 +148,15 @@ if($("markSelectedDoneBtn")) $("markSelectedDoneBtn").onclick = async () => {
 
 /* --- TICKETS & INFO BOARD LOGIK --- */
 function initTicketSystem() {
-  // Info Board List
   onSnapshot(query(collection(db, "info_board"), orderBy("createdAt", "desc"), limit(20)), s => {
     if($("infoBoardList")) $("infoBoardList").innerHTML = s.docs.map(d => `<div class="info-board-msg"><b>${esc(d.data().author)}:</b> ${esc(d.data().text)} <span class="muted small" style="float:right;">${d.data().timeStr}</span></div>`).join("");
   });
-
   if($("infoBoardAddBtn")) $("infoBoardAddBtn").onclick = async () => {
     const text = n($("infoBoardInp").value); if(!text) return;
     await addDoc(collection(db, "info_board"), { text, author: meName, timeStr: stamp(), createdAt: serverTimestamp() });
     $("infoBoardInp").value = "";
   };
 
-  // Ticket Categories (Setup)
   onSnapshot(collection(db, "ticket_cats"), s => {
     ticketCats = s.docs.map(d => ({id:d.id, ...d.data()}));
     if($("ticketCatSel")) $("ticketCatSel").innerHTML = `<option value="">Bereich wählen...</option>` + ticketCats.map(c => `<option value="${c.id}">${esc(c.name)} (Zuständig: ${esc(c.assignee)})</option>`).join("");
@@ -181,12 +181,10 @@ function initTicketSystem() {
     $("ticketTitleInp").value = ""; $("ticketDescInp").value = ""; alert("Ticket wurde gesendet!");
   };
 
-  // Tickets auslesen (Benachrichtigungen & Listen)
   onSnapshot(query(collection(db, "tickets"), orderBy("createdAt", "desc")), s => {
     let myHtml = "", pubHtml = "";
     s.docChanges().forEach(change => {
       const t = change.doc.data();
-      // Push Notification, wenn ich beteiligt bin (Ersteller oder Zuständiger) und die Änderung NICHT von mir kam
       if (initialLoadComplete && (change.type === "added" || change.type === "modified") && (t.assignee === meName || t.creator === meName) && t.lastUpdatedBy !== meName) {
         triggerPush("Ticket Update: " + t.title, `Neues Update von ${t.lastUpdatedBy}`);
       }
@@ -215,7 +213,6 @@ window.openTicket = async (id) => {
   $("tModDesc").innerHTML = `<b>Bereich:</b> ${esc(t.catName)}<br><b>Beschreibung:</b> ${esc(t.desc)}`;
   $("tModHistory").innerHTML = (t.history || []).map(h => `<div class="history-item"><b>${esc(h.author)}:</b> ${esc(h.text)} <span style="float:right; font-size:0.75rem;">${h.timeStr}</span></div>`).join("");
   
-  // Sichtbarkeiten regeln
   show($("tModCommentInp"), t.status === "open"); show($("tModSendCommentBtn"), t.status === "open");
   const isAssignee = (t.assignee === meName);
   show($("tModAssigneeArea"), isAssignee && t.status === "open");
@@ -229,13 +226,11 @@ if($("tModSendCommentBtn")) $("tModSendCommentBtn").onclick = async () => {
   const tRef = doc(db, "tickets", activeTicketId); const t = (await getDoc(tRef)).data();
   const hist = t.history || []; hist.push({ type: "comment", text, author: meName, timeStr: stamp() });
   await updateDoc(tRef, { history: hist, lastUpdatedBy: meName });
-  $("tModCommentInp").value = ""; window.openTicket(activeTicketId); // Refresh modal
+  $("tModCommentInp").value = ""; window.openTicket(activeTicketId); 
 };
-
 if($("tModPublicCheck")) $("tModPublicCheck").onchange = async () => {
   await updateDoc(doc(db, "tickets", activeTicketId), { visibility: $("tModPublicCheck").checked ? "public" : "private", lastUpdatedBy: meName });
 };
-
 if($("tModCloseTicketBtn")) $("tModCloseTicketBtn").onclick = async () => {
   const text = n($("tModCloseInp").value); if(!text) return alert("Pflichtfeld: Was wurde zur Lösung gemacht?");
   const tRef = doc(db, "tickets", activeTicketId); const t = (await getDoc(tRef)).data();
@@ -243,10 +238,9 @@ if($("tModCloseTicketBtn")) $("tModCloseTicketBtn").onclick = async () => {
   await updateDoc(tRef, { status: "closed", history: hist, lastUpdatedBy: meName });
   $("tModCloseInp").value = ""; show($("ticketModal"), false);
 };
-
 if($("tModCloseBtn")) $("tModCloseBtn").onclick = () => show($("ticketModal"), false);
 
-/* --- ADMIN & SYSTEM LOGIK (Beibehalten) --- */
+/* --- ADMIN & PUSH LOGIK --- */
 function initAdminLogic() {
   const updatePlanFilter = () => {
     if(!$("planDaySel") || !$("planTagSel")) return;
@@ -290,12 +284,34 @@ if($("regenTestBtn")) $("regenTestBtn").onclick = async () => {
 function initPushSystem() {
   if($("settingsBtn")) $("settingsBtn").onclick = () => show($("settingsCard"), true);
   if($("closeSettingsBtn")) $("closeSettingsBtn").onclick = () => show($("settingsCard"), false);
-  if($("reqPushBtn")) $("reqPushBtn").onclick = () => { Notification.requestPermission().then(p => alert(p === "granted" ? "Aktiviert!" : "Blockiert.")); };
+  
+  // ECHTE PUSH SETUP (VAPID)
+  if($("reqPushBtn")) $("reqPushBtn").onclick = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        // HIER DEINEN VAPID KEY AUS SCHRITT 1 EINTRAGEN!
+        const token = await getToken(messaging, { vapidKey: "DEIN_VAPID_KEY_HIER_EINTRAGEN" });
+        if (token && auth.currentUser) {
+          await setDoc(doc(db, "users", auth.currentUser.uid), { fcmToken: token }, { merge: true });
+          alert("Echte Push-Benachrichtigungen aktiviert!");
+        }
+      } else { alert("Zugriff blockiert."); }
+    } catch (err) { console.error(err); alert("Fehler bei der Push-Aktivierung. Siehe Konsole."); }
+  };
+
+  // Empfang von Push, wenn die App IM VORDERGRUND offen ist
+  onMessage(messaging, (payload) => {
+    triggerPush(payload.notification.title, payload.notification.body);
+  });
+
   if($("saveMuteBtn")) $("saveMuteBtn").onclick = async () => { const v = $("muteUntilInp").value; if(v && auth.currentUser) { await setDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: v }, { merge: true }); alert("Urlaub gespeichert!"); } };
   if($("clearMuteBtn")) $("clearMuteBtn").onclick = async () => { if(auth.currentUser) { await setDoc(doc(db, "users", auth.currentUser.uid), { muteUntil: "" }, { merge: true }); alert("Urlaub beendet!"); } };
+  
+  // Lokaler Fallback-Timer (Nur solange App offen/Tab aktiv ist)
   setInterval(() => {
     if (myMuteUntil && Number(myMuteUntil) >= Number(dayKeyNow())) return;
-    if ([9, 12, 14, 16, 18].includes(new Date().getHours()) && new Date().getMinutes() === 0 && Notification.permission === "granted") triggerPush("RA 93 Pro", "Schau nach, ob Aufgaben offen sind!");
+    if ([9, 12, 14, 16, 18].includes(new Date().getHours()) && new Date().getMinutes() === 0) triggerPush("RA 93 Pro", "Schau nach, ob Aufgaben offen sind!");
   }, 60000);
 }
 
@@ -311,17 +327,9 @@ function setupTabs(btnClass, tabClass) {
 }
 setupTabs(".tabbtn", ".tab"); setupTabs(".subtabbtn", ".subtab");
 
-// --- ADMIN FEATURES ---
-if($("saveConfigPointsBtn")) $("saveConfigPointsBtn").onclick = async () => {
-  if(!isAdmin) return; const t = Number($("configTaskPoints").value)||1, r = Number($("configRidePoints").value)||1;
-  await setDoc(doc(db, "meta", "settings"), { taskPoints: t, ridePoints: r }, { merge: true }); alert("Punkte-Werte gespeichert!");
-};
-if($("savePointsBtn")) $("savePointsBtn").onclick = async () => {
-  if(!confirm("Punkte für ALLE überschreiben?")) return;
-  const tPoints = Number($("editTasksInp").value)||0, rPoints = Number($("editRidesInp").value)||0; const batch = writeBatch(db);
-  employees.forEach(emp => { const k = keyOfName(emp.name); batch.set(doc(db, "points_tasks", k), { points: tPoints }, { merge: true }); batch.set(doc(db, "points_rides", k), { points: rPoints }, { merge: true }); });
-  await batch.commit(); alert(`Alle Punkte auf Tasks:${tPoints}, Fahrten:${rPoints} gesetzt!`);
-};
+// --- ADMIN DATENBANK LOGIK ---
+if($("saveConfigPointsBtn")) $("saveConfigPointsBtn").onclick = async () => { if(!isAdmin) return; const t = Number($("configTaskPoints").value)||1, r = Number($("configRidePoints").value)||1; await setDoc(doc(db, "meta", "settings"), { taskPoints: t, ridePoints: r }, { merge: true }); alert("Punkte gespeichert!"); };
+if($("savePointsBtn")) $("savePointsBtn").onclick = async () => { if(!confirm("Alle überschreiben?")) return; const tPoints = Number($("editTasksInp").value)||0, rPoints = Number($("editRidesInp").value)||0; const batch = writeBatch(db); employees.forEach(emp => { const k = keyOfName(emp.name); batch.set(doc(db, "points_tasks", k), { points: tPoints }, { merge: true }); batch.set(doc(db, "points_rides", k), { points: rPoints }, { merge: true }); }); await batch.commit(); alert("Alle Punkte gesetzt!"); };
 if($("addExtraTaskBtn")) $("addExtraTaskBtn").onclick = async () => { const text = n($("extraTaskInp").value), tagKey = $("extraTaskTagSel").value; if(!text || !tagKey) return; await addDoc(collection(db, "daily_tasks"), { text, tagKey, dateKey: dayKeyNow(), status: "open", type: "task", doneBy: [] }); $("extraTaskInp").value = ""; };
 if($("empAddBtn")) $("empAddBtn").onclick = async () => { const v = n($("empAdd").value); if(!v) return; await setDoc(doc(db, "employees", keyOfName(v)), { name: v, passHash: "" }); $("empAdd").value = ""; };
 if($("adminUidAddBtn")) $("adminUidAddBtn").onclick = async () => { if(!isAdmin) return; await setDoc(doc(db, "admins_by_name", keyOfName($("adminUidAdd").value)), { enabled: true }); $("adminUidAdd").value = ""; };
@@ -353,7 +361,7 @@ function renderHygieneUserView() {
 if($("saveRideBtn")) $("saveRideBtn").onclick = async () => { const name = $("rideNameSel").value, einsatz = $("rideEinsatz").value; if(!name || !einsatz) return; await addDoc(collection(db, "rides"), { name, einsatz, status: "open", createdAt: serverTimestamp() }); $("rideEinsatz").value = ""; };
 window.finalCheckRide = async (id, userKey) => { await updateDoc(doc(db, "rides", id), { status: "done", awardedPoints: globalRidePoints }); await setDoc(doc(db, "points_rides", userKey), { points: increment(globalRidePoints) }, { merge: true }); };
 window.rejectRide = async (id) => { await deleteDoc(doc(db, "rides", id)); };
-window.delRide = async (id, userKey, status) => { if(!confirm("Fahrt löschen?")) return; if(status !== "open") { const snap = await getDoc(doc(db, "rides", id)); const pts = snap.exists() ? (snap.data().awardedPoints || globalRidePoints) : globalRidePoints; await setDoc(doc(db, "points_rides", userKey), { points: increment(-pts) }, { merge: true }); } await deleteDoc(doc(db, "rides", id)); };
+window.delRide = async (id, userKey, status) => { if(!confirm("Löschen?")) return; if(status !== "open") { const snap = await getDoc(doc(db, "rides", id)); const pts = snap.exists() ? (snap.data().awardedPoints || globalRidePoints) : globalRidePoints; await setDoc(doc(db, "points_rides", userKey), { points: increment(-pts) }, { merge: true }); } await deleteDoc(doc(db, "rides", id)); };
 window.finalCheck = async (id) => { const snap = await getDoc(doc(db, "daily_tasks", id)); if(snap.exists() && snap.data().doneBy) { for (const name of snap.data().doneBy) { await setDoc(doc(db, "points_tasks", keyOfName(name)), { points: increment(globalTaskPoints) }, { merge: true }); } } await deleteDoc(doc(db, "daily_tasks", id)); };
 window.rejectTask = async (id) => { await updateDoc(doc(db, "daily_tasks", id), { status: "open", doneBy: [] }); };
 function renderPointsTable(st, sr) { if(!$("pointsTableBody")) return; const res = {}; st.forEach(d => res[d.id] = { t: d.data().points||0, r: 0 }); sr.forEach(d => { if(!res[d.id]) res[d.id]={t:0,r:0}; res[d.id].r = d.data().points||0; }); $("pointsTableBody").innerHTML = Object.keys(res).map(k => `<tr><td>${k}</td><td>${res[k].t}</td><td>${res[k].r}</td><td><b>${res[k].t+res[k].r}</b></td></tr>`).join(""); }
